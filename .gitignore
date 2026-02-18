@@ -72,3 +72,4 @@ local_settings.py
 *.p12
 secrets/
 credentials/
+

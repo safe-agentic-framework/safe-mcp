@@ -1,0 +1,399 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://safe-mcp.org/schemas/mitigation-schema.json",
+  "title": "SAFE-MCP Mitigation Schema",
+  "description": "Comprehensive schema for SAFE-MCP security mitigations",
+  "type": "object",
+  "required": ["id", "name", "category", "effectiveness", "implementation_complexity", "description"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^SAFE-M-[0-9]+$",
+      "description": "Unique mitigation identifier (e.g., SAFE-M-1)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name of the mitigation"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "Architectural Defense",
+        "Cryptographic Control",
+        "AI-Based Defense",
+        "Input Validation",
+        "Supply Chain Security",
+        "UI Security",
+        "Isolation and Containment",
+        "Detective Control",
+        "Preventive Control",
+        "Architectural Control",
+        "Risk Management",
+        "Data Security",
+        "Human Factors",
+        "Access Control",
+        "Monitoring and Logging"
+      ],
+      "description": "Category of the mitigation control"
+    },
+    "effectiveness": {
+      "type": "object",
+      "required": ["level"],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["High", "Medium-High", "Medium", "Low"]
+        },
+        "additional_context": {
+          "type": "string",
+          "description": "Additional context like 'Provable Security'"
+        }
+      }
+    },
+    "implementation_complexity": {
+      "type": "string",
+      "enum": ["High", "Medium", "Low"],
+      "description": "Complexity of implementing this mitigation"
+    },
+    "first_published": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when the mitigation was first published"
+    },
+    "description": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "description": "Array of paragraphs describing the mitigation"
+    },
+    "mitigates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^SAFE-T[0-9]{4}(\\.[0-9]{3})?$"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "List of techniques this mitigation addresses"
+    },
+    "technical_implementation": {
+      "type": "object",
+      "properties": {
+        "core_principles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "description"],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "architecture_components": {
+          "type": "object",
+          "properties": {
+            "diagram": {
+              "type": "string",
+              "description": "ASCII diagram or architecture description"
+            },
+            "components": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "prerequisites": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "implementation_steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["phase", "steps"],
+            "properties": {
+              "phase": {
+                "type": "string",
+                "description": "Implementation phase (e.g., Design, Development, Deployment)"
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "benefits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "metrics": {
+            "type": "string",
+            "description": "Quantitative metrics if available"
+          }
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "impact_assessment": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "implementation_examples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "code"],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "testing_and_validation": {
+      "type": "object",
+      "properties": {
+        "security_testing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "functional_testing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "integration_testing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "deployment_considerations": {
+      "type": "object",
+      "properties": {
+        "resource_requirements": {
+          "type": "object",
+          "properties": {
+            "cpu": {
+              "type": "string"
+            },
+            "memory": {
+              "type": "string"
+            },
+            "storage": {
+              "type": "string"
+            },
+            "network": {
+              "type": "string"
+            }
+          }
+        },
+        "performance_impact": {
+          "type": "object",
+          "properties": {
+            "latency": {
+              "type": "string"
+            },
+            "throughput": {
+              "type": "string"
+            },
+            "resource_usage": {
+              "type": "string"
+            }
+          }
+        },
+        "monitoring_and_alerting": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "metric": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["metric", "alert"]
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "current_status": {
+      "type": "object",
+      "properties": {
+        "year": {
+          "type": "integer"
+        },
+        "adoption": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "statement": {
+                "type": "string"
+              },
+              "citation": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "url"],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["specification", "research", "blog", "tool", "standard", "other"]
+          }
+        }
+      }
+    },
+    "related_mitigations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^SAFE-M-[0-9]+$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "relationship": {
+            "type": "string",
+            "description": "Description of how mitigations are related"
+          }
+        }
+      }
+    },
+    "version_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["version", "date", "changes", "author"],
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "changes": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "file_path": {
+          "type": "string",
+          "description": "Path to the source markdown file"
+        },
+        "last_parsed": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when this was last parsed"
+        }
+      }
+    }
+  }
+}
