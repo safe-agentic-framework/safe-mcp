@@ -172,3 +172,13 @@ The SAFE-MCP framework defines 14 tactics that align with the MITRE ATT&CK metho
 - Map these techniques to your specific MCP deployment for risk assessment
 - Prioritize mitigation based on your threat model and the techniques most relevant to your environment
 - Regular review as new techniques emerge in the rapidly evolving MCP threat landscape
+
+## Star History
+
+<a href="https://www.star-history.com/#SAFE-MCP/safe-mcp&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=SAFE-MCP/safe-mcp&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=SAFE-MCP/safe-mcp&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=SAFE-MCP/safe-mcp&type=date&legend=top-left" />
+ </picture>
+</a>
