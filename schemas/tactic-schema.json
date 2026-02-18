@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://safe-mcp.org/schemas/tactic-schema.json",
+  "title": "SAFE-MCP Tactic Schema",
+  "description": "Schema for SAFE-MCP tactics aligned with MITRE ATT&CK",
+  "type": "object",
+  "required": ["id", "name", "description"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^ATK-TA[0-9]{4}$",
+      "description": "Tactic identifier aligned with MITRE ATT&CK (e.g., ATK-TA0001)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Name of the tactic"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of what the adversary is trying to do in this tactic"
+    },
+    "techniques": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^SAFE-T[0-9]{4}(\\.[0-9]{3})?$"
+      },
+      "description": "List of technique IDs associated with this tactic"
+    },
+    "mitre_attack_mapping": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "MITRE ATT&CK tactic ID"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to MITRE ATT&CK tactic page"
+        }
+      }
+    }
+  }
+}

@@ -72,3 +72,22 @@ local_settings.py
 *.p12
 secrets/
 credentials/
+# Python
+__pycache__/
+*.py[cod]
+*.class
+.Python
+*.so
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# Generated data files (recreated by CI)
+data/*.json
+data/*.toon
+
+# Keep directory structure
+!data/.gitkeep
+
