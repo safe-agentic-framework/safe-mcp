@@ -1,0 +1,122 @@
+title: MCP Exposed Endpoint Unauthorized Access Detection
+id: b8e2f147-3c6d-4a82-9e5b-2f1d3c4a8b7e
+status: experimental
+description: Detects potential unauthorized access to exposed MCP server endpoints including NeighborJack attacks (CVE-2025-49596, CVE-2025-52882, CVE-2025-6514)
+author: Raju Kumar Yadav
+date: 2026-01-06
+modified: 2026-01-06
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1005
+  - https://nvd.nist.gov/vuln/detail/CVE-2025-49596
+  - https://nvd.nist.gov/vuln/detail/CVE-2025-52882
+  - https://nvd.nist.gov/vuln/detail/CVE-2025-6514
+  - https://securitylabs.datadoghq.com/articles/claude-mcp-cve-2025-52882/
+  - https://www.oligo.security/blog/critical-rce-vulnerability-in-anthropic-mcp-inspector-cve-2025-49596
+  - https://jfrog.com/blog/2025-6514-critical-mcp-remote-rce-vulnerability/
+  - https://authzed.com/blog/timeline-mcp-breaches
+logsource:
+  product: webserver
+  service: access
+detection:
+  # Detection for MCP endpoint access patterns
+  selection_mcp_endpoints:
+    c-uri-path|contains:
+      - '/sse'
+      - '/message'
+      - '/tools/list'
+      - '/tools/call'
+      - '/ping'
+      - '/initialize'
+
+  # Detection for suspicious MCP protocol parameters
+  selection_mcp_params:
+    c-uri-query|contains:
+      - 'transportType=stdio'
+      - 'jsonrpc'
+      - 'method=tools'
+      - 'method=ping'
+      - 'method=initialize'
+
+  # Detection for command injection attempts
+  selection_command_injection:
+    c-uri-query|contains:
+      - 'command='
+      - '&args='
+      - 'command=calc'
+      - 'command=cmd'
+      - 'command=powershell'
+      - 'command=bash'
+      - 'command=sh'
+      - 'command=curl'
+      - 'command=wget'
+      - 'command=python'
+      - 'command=node'
+      - 'command=nc'
+      - 'command=netcat'
+
+  # Detection for external/suspicious source IPs
+  selection_external_source:
+    c-ip|re: '^(?!127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)'
+
+  # Detection for 0.0.0.0 requests (NeighborJack attack vector)
+  selection_zero_ip:
+    cs-host|contains:
+      - '0.0.0.0'
+
+  # Detection for common MCP ports from external sources
+  selection_mcp_ports:
+    cs-uri-port:
+      - 6277
+      - 6274
+      - 3000
+      - 3001
+      - 8080
+
+  # Detection for WebSocket upgrade attempts
+  selection_websocket:
+    cs-upgrade: 'websocket'
+    c-uri-path|contains:
+      - '/ws'
+      - '/socket'
+
+  # Filter for high-volume port scanning behavior
+  filter_port_scan:
+    c-ip|count: gt 20
+    timeframe: 60s
+
+  condition: >
+    (selection_mcp_endpoints and selection_mcp_params) or
+    (selection_mcp_endpoints and selection_external_source) or
+    (selection_mcp_endpoints and selection_command_injection) or
+    (selection_zero_ip and selection_mcp_ports) or
+    (selection_websocket and selection_mcp_ports) or
+    filter_port_scan
+falsepositives:
+  - Legitimate remote MCP administration with proper authentication
+  - Authorized security testing and penetration testing
+  - Distributed MCP deployments across networks
+  - Development environments with intentionally exposed endpoints
+  - Load balancer health checks on MCP ports
+level: high
+tags:
+  - attack.initial_access
+  - attack.t1190
+  - attack.t1133
+  - attack.discovery
+  - attack.t1046
+  - safe.t1005
+  - cve.2025.49596
+  - cve.2025.52882
+  - cve.2025.6514
+  - mcp.exposed_endpoint
+  - neighborjack
+fields:
+  - c-uri-path
+  - c-uri-query
+  - c-ip
+  - cs-uri-port
+  - cs-method
+  - sc-status
+  - cs-host
+  - cs-upgrade
+  - cs-user-agent
