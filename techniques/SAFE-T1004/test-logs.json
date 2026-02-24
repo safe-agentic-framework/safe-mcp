@@ -2,31 +2,61 @@
   {
     "EventID": 1014,
     "Provider_Name": "Microsoft-Windows-DNS-Client",
-    "Message": "Domain api.company.com resolved to unexpected IP 192.168.1.50"
+    "Message": "Name resolution for the name api.company.com timed out after none of the configured DNS servers responded.",
+    "expected_detection": true
   },
   {
     "EventID": 1014,
     "Provider_Name": "Microsoft-Windows-DNS-Client",
-    "Message": "DNSSEC validation failed for domain secure.company.com"
+    "Message": "DNSSEC validation failed for domain secure.company.com",
+    "expected_detection": true
+  },
+  {
+    "EventID": 1014,
+    "Provider_Name": "Microsoft-Windows-DNS-Client",
+    "Message": "Domain api.company.com resolved to known IP 10.0.0.15",
+    "expected_detection": false
   },
   {
     "EventID": 2022,
     "Provider_Name": "Microsoft-Windows-TCPIP",
-    "Message": "Duplicate ARP entry detected for 192.168.1.1 with MAC aa-bb-cc-dd-ee-ff"
+    "Message": "Duplicate ARP entry detected for 192.168.1.1 with MAC aa-bb-cc-dd-ee-ff",
+    "expected_detection": true
+  },
+  {
+    "EventID": 2022,
+    "Provider_Name": "Microsoft-Windows-TCPIP",
+    "Message": "ARP cache updated for gateway 192.168.1.1",
+    "expected_detection": false
   },
   {
     "EventID": 36882,
     "Provider_Name": "Schannel",
-    "Message": "TLS certificate mismatch detected for service analytics-hub.local"
+    "Message": "TLS certificate mismatch detected for service analytics-hub.local",
+    "expected_detection": true
   },
   {
     "EventID": 36882,
     "Provider_Name": "Schannel",
-    "Message": "Client accepted self-signed certificate for endpoint 192.168.1.50"
+    "Message": "TLS handshake completed with trusted certificate",
+    "expected_detection": false
   },
   {
     "EventID": 9999,
     "Provider_Name": "ODR",
-    "Message": "Duplicate service registration detected: analytics-hub.local"
+    "Message": "Duplicate service registration detected: analytics-hub.local",
+    "expected_detection": true
+  },
+  {
+    "EventID": 9999,
+    "Provider_Name": "ODR",
+    "Message": "Name collision detected for service analytics-hub.local",
+    "expected_detection": true
+  },
+  {
+    "EventID": 9999,
+    "Provider_Name": "ODR",
+    "Message": "Service registration refreshed for analytics-hub.local",
+    "expected_detection": false
   }
 ]
