@@ -1,11 +1,12 @@
 title: Detection of Server Impersonation / Name-Collision (SAFE-T1004)
 id: 9f3c2a8e-7d4b-4c2f-9a1e-8e2b7f9c1d23
 status: experimental
-description: Detects indicators of server impersonation or name-collision attacks across DNS, ARP, and ODR
+description: Detects indicators of server impersonation or name-collision attacks across DNS, ARP, TLS, and local registry events
 author: Ryan Jennings
 date: 2025-11-22
+modified: 2026-02-24
 references:
-  - https://github.com/safe-mcp/techniques/SAFE-T1004
+  - https://github.com/SAFE-MCP/safe-mcp/tree/main/techniques/SAFE-T1004
   - https://attack.mitre.org/techniques/T1557/
   - https://attack.mitre.org/techniques/T1565/002/
 logsource:
@@ -16,12 +17,14 @@ detection:
     EventID: 1014
     Provider_Name: "Microsoft-Windows-DNS-Client"
     Message|contains:
-      - "resolved to unexpected IP"
+      - "timed out after none of the configured DNS servers responded"
       - "DNSSEC validation failed"
   selection_odr:
-    service_name|count: ">1"   # duplicate service names in ODR
+    Provider_Name: "ODR"
+    Message|contains:
+      - "duplicate service registration"
+      - "name collision"
   selection_arp:
-    EventID: 2022
     Provider_Name: "Microsoft-Windows-TCPIP"
     Message|contains:
       - "duplicate ARP entry"
@@ -34,12 +37,13 @@ detection:
       - "self-signed certificate"
   condition: selection_dns or selection_odr or selection_arp or selection_tls
 falsepositives:
-  - Legitimate redeployment of services causing duplicate names
-  - Test environments with self-signed certificates
+  - Legitimate service redeployments that temporarily create duplicate registry entries
+  - Controlled test environments using self-signed certificates
+  - Planned DNS cutovers during maintenance windows
 level: high
 tags:
   - attack.credential_access
   - attack.t1557
-  - attack.t1565.002
   - attack.t1557.002
+  - attack.t1565.002
   - safe.t1004
