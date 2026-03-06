@@ -136,6 +136,6 @@ Attackers may exploit token privileges to alter cloud resources, manipulate CI/C
 - [Lateral Movement](https://attack.mitre.org/tactics/TA0008/)
 
 ## Version History
-| Version | Date | Changes | Author |
-|---------|------|---------|--------|
+| Version | Date | Changes                 | Author          |
+|---------|------|-------------------------|-----------------|
 | 1.0 | 2026-02-08 | Initial documentation | Ayomide Onatola |
