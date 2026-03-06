@@ -134,3 +134,8 @@ Attackers may exploit token privileges to alter cloud resources, manipulate CI/C
 - [Persistence](https://attack.mitre.org/tactics/TA0003/)
 - [Privilege Escalation](https://attack.mitre.org/tactics/TA0004/)
 - [Lateral Movement](https://attack.mitre.org/tactics/TA0008/)
+
+## Version History
+| Version | Date | Changes | Author |
+|---------|------|---------|--------|
+| 1.0 | 2026-02-08 | Initial documentation | Ayomide Onatola |
