@@ -295,6 +295,25 @@ mcp-scan scan --json
 mcp-scan proxy
 ```
 
+#### ATR (Agent Threat Rules)
+[ATR](https://github.com/Agent-Threat-Rule/agent-threat-rules) provides YAML-based detection rules (Sigma/YARA-style) for MCP tool call threats. Six ATR rules map to SAFE-T1001:
+
+| ATR Rule | Detection Focus |
+| -------- | --------------- |
+| [ATR-2026-010](https://github.com/Agent-Threat-Rule/agent-threat-rules/blob/main/rules/tool-poisoning/ATR-2026-010-malicious-tool-response.yaml) | Malicious content in MCP tool responses (shell commands, reverse shells, curl pipe-to-shell) |
+| [ATR-2026-011](https://github.com/Agent-Threat-Rule/agent-threat-rules/blob/main/rules/tool-poisoning/ATR-2026-011-instruction-injection-tool-output.yaml) | Prompt injection payloads embedded in tool outputs |
+| [ATR-2026-100](https://github.com/Agent-Threat-Rule/agent-threat-rules/blob/main/rules/tool-poisoning/ATR-2026-100-consent-bypass-hidden-instructions.yaml) | Consent bypass via hidden LLM instructions in tool descriptions |
+| [ATR-2026-101](https://github.com/Agent-Threat-Rule/agent-threat-rules/blob/main/rules/tool-poisoning/ATR-2026-101-trust-escalation-authority-override.yaml) | Trust escalation via authority override instructions |
+| [ATR-2026-103](https://github.com/Agent-Threat-Rule/agent-threat-rules/blob/main/rules/tool-poisoning/ATR-2026-103-hidden-safety-bypass.yaml) | Hidden LLM safety bypass instructions in tool descriptions |
+| [ATR-2026-105](https://github.com/Agent-Threat-Rule/agent-threat-rules/blob/main/rules/tool-poisoning/ATR-2026-105-silent-action-concealment.yaml) | Silent action concealment instructions in tool descriptions |
+
+```bash
+# Scan MCP skills with ATR rules
+npx agent-threat-rules scan events.json
+```
+
+Full SAFE-MCP mapping (78/85 techniques covered): [ATR SAFE-MCP Mapping](https://github.com/Agent-Threat-Rule/agent-threat-rules/blob/main/docs/SAFE-MCP-MAPPING.md)
+
 #### Using Our TPA Detection Script
 The included detection script can be integrated into CI/CD pipelines:
 ```bash
