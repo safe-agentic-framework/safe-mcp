@@ -5,31 +5,13 @@
 **Technique ID**: SAFE-T1505  
 **Severity**: Critical  
 **First Observed**: Research-based threat (2024-2025)  
-**Last Updated**: 2025-11-16  
+**Last Updated**: 2026-04-14  
 **Author**: Sumit Yadav (rockerritesh4@gmail.com)
 
 ## Description
-In-Memory Secret Extraction is a sophisticated attack technique that exploits the semantic understanding capabilities of embedding models and vector databases to identify, extract, and exfiltrate API keys and other credentials from AI systems. Unlike traditional pattern-matching approaches, this technique leverages the semantic similarity between prompts and stored embeddings to circumvent standard security controls.
+In-Memory Secret Extraction is an attack technique that exploits the semantic understanding capabilities of embedding models and vector databases to identify, extract, and exfiltrate API keys and other credentials from AI systems. Unlike traditional pattern-matching approaches, this technique leverages the semantic similarity between prompts and stored embeddings to circumvent standard security controls.
 
-Attackers exploit the fact that modern LLM systems use embedding models (such as Word2Vec, BERT, or sentence transformers) to convert text into high-dimensional vector representations. By crafting queries with high semantic similarity to credential-related content, adversaries can retrieve API keys from vector stores, prompt caches, or model contexts without triggering keyword-based detection systems. This technique represents a fundamental vulnerability in how AI systems handle and protect sensitive information through semantic analysis.
-
-### Recommended Embedding Models
-**Tested and Recommended for Production:**
-- **Small Models (Local Deployment)**:
-  - `all-MiniLM-L6-v2`: 80MB, fast, balanced performance (RECOMMENDED)
-  - `paraphrase-MiniLM-L3-v2`: 60MB, very fast, lighter accuracy
-  - `all-MiniLM-L12-v2`: 120MB, better accuracy, slower
-
-- **API-Based Solutions**:
-  - **OpenAI Embeddings API**: `text-embedding-3-small`, `text-embedding-3-large`
-  - **Google Vertex AI**: Text Embeddings API
-  - **Cohere**: Embed v3 (multilingual support)
-  - **Azure OpenAI**: Embedding models
-
-- **For Production Scale**:
-  - Use sentence-transformers library for local deployment
-  - API services for simplified integration and auto-scaling
-  - Consider cost vs. accuracy tradeoffs based on volume
+Attackers exploit the fact that modern LLM systems use embedding models (such as Word2Vec, BERT, or sentence transformers) to convert text into high-dimensional vector representations. The threat model is that, by crafting queries with high semantic similarity to credential-related content, adversaries can retrieve or infer API keys from vector stores, prompt caches, or model contexts without triggering keyword-based detection systems. Direct end-to-end credential extraction from MCP-integrated stores has not been demonstrated in the open literature as of this writing; the technique describes a credible threat assembled from primitives that have been independently demonstrated (embedding-layer perturbation, prompt-cache timing side-channels, system-prompt extraction). See "Current Status" below for the specific evidence base.
 
 ## Attack Vectors
 
@@ -54,10 +36,10 @@ Attackers exploit the fact that modern LLM systems use embedding models (such as
 - **Sophistication**: Requires ML expertise
 
 #### 3. Prompt Caching Exploitation
-- **Target**: Cached prompts containing API keys
-- **Method**: Query semantically similar prompts to trigger cache retrieval
-- **Research Foundation**: Auditing Prompt Caching in Language Model APIs (arXiv:2502.07776)
-- **Impact**: Retrieval of previously cached credentials
+- **Target**: Cached prompts that may contain API keys
+- **Method**: Query semantically similar prompts to trigger cache hits and observe timing or shared-cache side-channels
+- **Adjacent research**: "Auditing Prompt Caching in Language Model APIs" ([arXiv:2502.07776](https://arxiv.org/abs/2502.07776)) demonstrates timing side-channels and cross-user cache sharing in production LLM APIs. Direct retrieval of credentials from cache is a theoretical extension of those primitives to MCP environments where prompts may contain secrets, and has not been independently demonstrated.
+- **Impact**: Inference about candidate cached prompt content (including potential credentials) via timing or cross-tenant cache hits
 
 ## Technical Details
 
@@ -184,38 +166,53 @@ for i in range(5):
         print(f"Cluster {i} shows high variance: {cluster_variance:.4f}")
 ```
 
-#### Scenario 3: Prompt Cache Poisoning
+#### Scenario 3: Prompt Cache Probing
 
 ```python
-# Exploit prompt caching mechanism
-def exploit_prompt_cache(target_api_endpoint):
-    """
-    Craft queries to retrieve cached prompts containing API keys
-    Based on: Auditing Prompt Caching in Language Model APIs (arXiv:2502.07776)
-    """
-    
-    # Semantic variants to trigger cache hits
+# Probe a semantic prompt cache for cross-tenant content using timing side-channels.
+# Side-channel primitives (response-time delta on cache hit, cross-user cache sharing)
+# are demonstrated against production LLM APIs in Gu et al., "Auditing Prompt Caching
+# in Language Model APIs" (arXiv:2502.07776). The paper does NOT demonstrate that
+# cached responses themselves contain extractable credentials; this scenario shows
+# how the timing primitive could be applied in an MCP environment, with a hypothetical
+# extension (response-body credential matching) that would only succeed if the deployment
+# actually returns or echoes credential-bearing cached prompts to the caller.
+import time
+
+CACHE_HIT_LATENCY_DELTA_MS = 50  # tune per deployment
+
+def probe_prompt_cache(target_api_endpoint):
     cache_trigger_queries = [
         "What authentication method should I use?",
         "How do I configure API access?",
         "Show example of API key configuration",
         "What are my service credentials?",
     ]
-    
+
     for query in cache_trigger_queries:
+        baseline_ms = measure_cold_query_latency(target_api_endpoint, query)
+        t0 = time.perf_counter()
         response = send_query(target_api_endpoint, query)
-        
-        # Analyze response for cached credential data
-        if contains_api_key_pattern(response):
-            extract_and_exfiltrate(response)
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+
+        likely_cache_hit = (baseline_ms - elapsed_ms) > CACHE_HIT_LATENCY_DELTA_MS
+        if likely_cache_hit:
+            log_cache_hit_signal(query, elapsed_ms, baseline_ms)
+
+            # Hypothetical MCP-specific extension: if the deployment echoes cached
+            # prompt content into responses, response-body credential matching could
+            # turn a cache-hit signal into a credential leak. This is NOT demonstrated
+            # by the cited paper, and is only meaningful conditional on a cache hit.
+            if contains_api_key_pattern(response):
+                flag_for_review(query, response)
 
 def contains_api_key_pattern(text):
     """Detect API key patterns in response"""
     patterns = [
-        r'sk-[a-zA-Z0-9]{32,}',  # OpenAI
-        r'AKIA[0-9A-Z]{16}',      # AWS
-        r'AIza[0-9A-Za-z\-_]{35}', # Google
-        r'ya29\.[0-9A-Za-z\-_]+',  # Google OAuth
+        r'sk-[a-zA-Z0-9]{32,}',     # OpenAI
+        r'AKIA[0-9A-Z]{16}',         # AWS
+        r'AIza[0-9A-Za-z\-_]{35}',  # Google
+        r'ya29\.[0-9A-Za-z\-_]+',   # Google OAuth
     ]
     import re
     for pattern in patterns:
@@ -226,54 +223,56 @@ def contains_api_key_pattern(text):
 
 ### Advanced Attack Techniques (2024-2025 Research)
 
-According to recent research on embedding security and prompt manipulation, attackers have developed sophisticated variations:
+According to recent research on embedding security and prompt manipulation, attackers have developed the following variations:
 
-#### 1. Embedding Poisoning for Credential Extraction
-Based on "Embedding Poisoning: Bypassing Safety Alignment via Embedding Semantic Shift" ([arXiv:2509.06338](https://arxiv.org/abs/2509.06338)), attackers can:
+#### 1. Embedding-Layer Perturbation as a Building Block
+"Embedding Poisoning: Bypassing Safety Alignment via Embedding Semantic Shift" ([arXiv:2509.06338](https://arxiv.org/abs/2509.06338)) demonstrates that imperceptible perturbations injected into the embedding layer of an aligned LLM can bypass safety guardrails without modifying weights or visible input. The paper targets safety-alignment bypass on aligned models; it does not poison vector stores or target credential storage directly.
 
-- Poison vector stores with embeddings that have high similarity to credential queries
-- Shift embedding semantics to bypass safety filters while maintaining query effectiveness
-- Create embeddings that cluster near legitimate API key storage locations
+The relevance to credential extraction in MCP environments is theoretical: the same primitive — perturbing or crafting embeddings to evade semantic filters — could in principle be applied to:
+
+- Bypass embedding-based credential filters that classify queries by semantic similarity to known credential-extraction patterns
+- Construct queries whose embeddings sit just inside a vector-store retrieval threshold for credential-bearing chunks while sitting outside the lexical or keyword filter
 
 ```python
-def create_poisoned_embedding(target_embedding, malicious_shift):
+def create_perturbed_query_embedding(target_embedding, perturbation):
     """
-    Create poisoned embedding with semantic shift
-    Based on arXiv:2509.06338
+    Illustrative analogue of the embedding-layer perturbation primitive from
+    Yuan et al. (arXiv:2509.06338). NOT a faithful reproduction of their attack,
+    which targets the LLM's embedding layer in-process. Shown here only to make
+    the threat model concrete for MCP environments.
     """
-    # Blend legitimate and malicious embeddings
-    poisoned = 0.7 * target_embedding + 0.3 * malicious_shift
-    
-    # Normalize to maintain similarity characteristics
-    poisoned = poisoned / np.linalg.norm(poisoned)
-    
-    return poisoned
+    perturbed = 0.7 * target_embedding + 0.3 * perturbation
+    perturbed = perturbed / np.linalg.norm(perturbed)
+    return perturbed
 ```
 
-#### 2. System Vector Exploitation
-Based on "You Can't Steal Nothing: Mitigating Prompt Leakages in LLMs via System Vectors" ([arXiv:2509.21884](https://arxiv.org/abs/2509.21884)):
+#### 2. Prompt Leakage as a Credential-Adjacent Risk
+"You Can't Steal Nothing: Mitigating Prompt Leakages in LLMs via System Vectors" ([arXiv:2509.21884](https://arxiv.org/abs/2509.21884)) demonstrates a prompt-leakage attack capable of extracting system prompts from advanced models (including GPT-4o and Claude 3.5 Sonnet) and proposes SysVec — encoding system prompts as internal representation vectors — as a mitigation. The paper is primarily a defense paper; the attack it demonstrates is system-prompt extraction, not credential extraction.
 
-- Exploit system prompts encoded as internal representation vectors
-- Craft queries that align with system vector directions containing credentials
-- Bypass traditional prompt injection defenses through vector space manipulation
+The relevance to SAFE-T1505 is indirect: in MCP deployments where API keys, OAuth tokens, or other secrets are placed into the system prompt or are otherwise reachable via the same context window, the prompt-leakage primitive demonstrated in the paper becomes a credential-leakage primitive. This is a corollary, not a result the paper claims.
 
-#### 3. Semantic Prompt Caching Attacks
-Based on "Adaptive Semantic Prompt Caching with VectorQ" ([arXiv:2502.03771](https://arxiv.org/abs/2502.03771)):
+#### 3. Adaptive-Threshold Cache Probing (Theoretical)
+"vCache: Verified Semantic Prompt Caching" ([arXiv:2502.03771](https://arxiv.org/abs/2502.03771)) is a defense paper: it proposes an online algorithm to estimate per-prompt similarity thresholds for safe semantic-cache reuse. It does not describe an attack.
 
-- Learn embedding-specific threshold regions for cache retrieval
-- Craft queries within learned threshold regions to trigger cached credential retrieval
-- Exploit adaptive caching mechanisms to increase retrieval probability
+The reason it appears here is that any system using per-prompt or adaptive thresholds for semantic-cache retrieval also exposes those thresholds to inference. An attacker who can probe a deployment with controlled inputs may be able to:
+
+- Estimate the effective similarity threshold the cache uses for a given prompt
+- Craft semantically similar but lexically different queries that fall inside that threshold
+- Increase the probability of returning a cached response that originated from another user's session
+
+This is a hypothesized side-channel built on top of vCache-style adaptive caching, not a result demonstrated in the cited paper.
 
 ## Impact Assessment
-- **Confidentiality**: Critical - Direct extraction of API keys and credentials
+- **Confidentiality**: Critical - Direct extraction or inference of API keys and credentials
 - **Integrity**: High - Compromised credentials enable system manipulation
 - **Availability**: Medium - Stolen credentials can be used for resource exhaustion
 - **Scope**: Network-wide - Affects all systems sharing vector stores or embedding models
 
-### Current Status (2025)
-Security researchers have documented emerging threats in embedding-based systems:
-- Research demonstrates vulnerability of prompt caching mechanisms to semantic attacks ([arXiv:2502.07776](https://arxiv.org/abs/2502.07776))
-- Embedding poisoning techniques successfully bypass safety alignments ([arXiv:2509.06338](https://arxiv.org/abs/2509.06338))
+### Current Status (2025-2026)
+Security researchers have documented emerging primitives that compose into the threat described here, though end-to-end credential extraction from MCP-integrated vector stores has not been demonstrated in the open literature:
+- Prompt-cache timing side-channels and cross-user cache sharing have been measured against production LLM APIs ([arXiv:2502.07776](https://arxiv.org/abs/2502.07776))
+- Embedding-layer perturbation has been shown to bypass safety alignment in aligned LLMs ([arXiv:2509.06338](https://arxiv.org/abs/2509.06338))
+- System-prompt extraction from advanced models has been demonstrated, with system-vector encoding proposed as a mitigation ([arXiv:2509.21884](https://arxiv.org/abs/2509.21884))
 - Vector database security remains an active research area with few deployed mitigations
 - MCP servers with vector store integration lack comprehensive embedding security controls
 
@@ -365,32 +364,30 @@ tags:
 
 ### Preventive Controls
 
-1. **[SAFE-M-63: Embedding-Based API Key Detection and Filtering](../../mitigations/SAFE-M-63/README.md)**: **PRIMARY MITIGATION** - Real-time semantic analysis of queries using embedding similarity to detect and block credential extraction attempts. Tested with all-MiniLM-L6-v2 model achieving 94.2% accuracy with <2% false positives. Supports both local deployment and API-based solutions (OpenAI, Google, Cohere).
+1. **[SAFE-M-63: Embedding-Based API Key Detection and Filtering](../../mitigations/SAFE-M-63/README.md)**: **PRIMARY MITIGATION** - Real-time semantic analysis of queries using embedding similarity to detect and block credential extraction attempts. Supports both local deployment (e.g., `all-MiniLM-L6-v2`) and API-based solutions (OpenAI, Google, Cohere). See SAFE-M-63 for accuracy and false-positive characteristics under specific test conditions; raw performance numbers should not be quoted out of context.
 
 2. **[SAFE-M-30: Embedding Sanitization and Validation](../../mitigations/SAFE-M-30/README.md)**: Implement comprehensive validation of embeddings before storage to ensure no credential patterns are embedded in vector representations. Use semantic analysis to detect and redact credential-like content.
 
 3. **[SAFE-M-29: Vector Store Integrity Verification](../../mitigations/SAFE-M-29/README.md)**: Cryptographically verify vector store contents and maintain integrity checksums for embeddings. Implement access controls restricting queries to authorized users only.
 
-4. **[SAFE-M-32: Continuous Vector Store Monitoring](../../mitigations/SAFE-M-32/README.md)**: Monitor vector store queries for semantic anomalies and unusual similarity patterns. Implement alerting for queries with high similarity to credential-related content.
-
 4. **Semantic Similarity-Based Prompt Rejection**: Implement real-time semantic analysis to reject queries with high similarity (>0.85 cosine similarity) to known credential-extraction patterns. Use embedding models to calculate similarity scores for all incoming queries.
 
 5. **Embedding-Based Credential Filtering**: Scan all prompts and responses using embedding analysis to detect API key patterns. According to "Universal Sentence Encoder" ([arXiv:1803.11175](https://arxiv.org/abs/1803.11175)), sentence-level embeddings can effectively capture semantic meaning for filtering purposes.
 
-6. **Vector Store API Key Sanitization**: Implement pre-storage validation that calculates semantic distance from known credential patterns. Reject embeddings with distance <0.3 from API key pattern embeddings, as recommended in embedding security research.
+6. **Vector Store API Key Sanitization**: Implement pre-storage validation that calculates semantic distance from known credential patterns. Reject embeddings with distance below an empirically chosen threshold (e.g., <0.3 cosine distance) from API-key pattern embeddings; calibrate the threshold against your own data rather than copying a fixed value.
 
-7. **Prompt Cache Security Measures**: Based on research from "Auditing Prompt Caching in Language Model APIs" ([arXiv:2502.07776](https://arxiv.org/abs/2502.07776)), implement:
-   - Cache entry validation for credential patterns
-   - Semantic similarity checking before cache retrieval
-   - Differential privacy techniques for cached prompts
+7. **Prompt Cache Security Measures**: Prompt-cache timing side-channels and cross-user cache sharing have been demonstrated against production LLM APIs ("Auditing Prompt Caching in Language Model APIs", [arXiv:2502.07776](https://arxiv.org/abs/2502.07776)), so even if cached entries do not directly expose credentials, cache behavior can leak information about prior queries. Mitigations should include:
+   - Cache entry validation for credential patterns before insertion
+   - Per-tenant cache isolation to avoid cross-user inference
+   - Constant-time cache lookup paths or noise injection to blunt timing side-channels
 
 ### Detective Controls
 
 1. **[SAFE-M-32: Continuous Vector Store Monitoring](../../mitigations/SAFE-M-32/README.md)**: Real-time monitoring of vector database queries with semantic anomaly detection.
 
-2. **Embedding Anomaly Detection**: Implement clustering-based anomaly detection using k-means and DBSCAN algorithms. Based on "An Empirical Comparison of Supervised Learning Algorithms" ([arXiv:0806.2414](https://arxiv.org/abs/0806.2414)), ensemble methods provide robust anomaly detection.
+2. **Embedding Anomaly Detection**: Implement clustering-based anomaly detection on stored embeddings (e.g., k-means or DBSCAN) and alert on points that fall outside established clusters or near known credential-pattern centroids.
 
-3. **Activation Embedding Monitoring**: Monitor neural network activation patterns during query processing. Research from "Understanding Neural Networks Through Deep Visualization" ([arXiv:1506.06579](https://arxiv.org/abs/1506.06579)) demonstrates visualization techniques for detecting anomalous activations.
+3. **Activation Embedding Monitoring**: Where the deployment exposes intermediate activations (e.g., self-hosted models), monitor activation distributions per layer for drift relative to a baseline of legitimate traffic, and alert when query-time activations fall in regions associated with credential-bearing training or context data. This is an emerging detection direction without an established peer-reviewed reference for credential extraction specifically.
 
 4. **Semantic Distance Analysis**: Continuously measure semantic distance between queries and known credential-extraction patterns. Use metrics from "A Survey on Metric Learning for Feature Vectors and Structured Data" ([arXiv:1306.6709](https://arxiv.org/abs/1306.6709)).
 
@@ -432,17 +429,14 @@ tags:
 - [Efficient Estimation of Word Representations in Vector Space - Mikolov et al., 2013](https://arxiv.org/abs/1301.3781)
 - [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding - Devlin et al., 2018](https://arxiv.org/abs/1810.04805)
 - [Universal Sentence Encoder - Cer et al., 2018](https://arxiv.org/abs/1803.11175)
-- [Understanding Neural Networks Through Deep Visualization - Yosinski et al., 2015](https://arxiv.org/abs/1506.06579)
-- [You Can't Steal Nothing: Mitigating Prompt Leakages in LLMs via System Vectors, 2025](https://arxiv.org/abs/2509.21884)
+- [You Can't Steal Nothing: Mitigating Prompt Leakages in LLMs via System Vectors - Cao et al., 2025](https://arxiv.org/abs/2509.21884)
 - [Embedding Poisoning: Bypassing Safety Alignment via Embedding Semantic Shift, 2025](https://arxiv.org/abs/2509.06338)
 - [Redundancy, Isotropy, and Intrinsic Dimensionality of Prompt-based Text Embeddings, 2025](https://arxiv.org/abs/2506.01435)
-- [Adaptive Semantic Prompt Caching with VectorQ, 2025](https://arxiv.org/abs/2502.03771)
-- [Auditing Prompt Caching in Language Model APIs, 2025](https://arxiv.org/abs/2502.07776)
+- [vCache: Verified Semantic Prompt Caching - Schroeder et al., 2025](https://arxiv.org/abs/2502.03771)
+- [Auditing Prompt Caching in Language Model APIs - Gu et al., ICML 2025](https://arxiv.org/abs/2502.07776)
 - [A Survey on Metric Learning for Feature Vectors and Structured Data - Bellet et al., 2013](https://arxiv.org/abs/1306.6709)
-- [How Small Transformations Expose the Weakness of Semantic Similarity Measures, 2025](https://arxiv.org/abs/2509.09714)
-- [An Empirical Comparison of Supervised Learning Algorithms - Caruana and Niculescu-Mizil, 2006](https://arxiv.org/abs/0806.2414)
-- [Sentiment Analysis: A Combined Approach - Medhat et al., 2014](https://arxiv.org/abs/1406.2673)
-- [Learning to Rank Short Text Pairs with Convolutional Deep Neural Networks - Hu et al., 2015](https://arxiv.org/abs/1503.03244)
+- [How Small Transformation Expose the Weakness of Semantic Similarity Measures - Nikiema et al., 2025](https://arxiv.org/abs/2509.09714)
+- [Convolutional Neural Network Architectures for Matching Natural Language Sentences - Hu et al., 2015](https://arxiv.org/abs/1503.03244)
 
 ### Additional Trusted Sources
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/specification)
@@ -466,4 +460,5 @@ tags:
 | Version | Date | Changes | Author |
 |---------|------|---------|--------|
 | 1.0 | 2025-11-16 | Initial documentation of In-Memory Secret Extraction | Sumit Yadav (rockerritesh4@gmail.com) |
+| 1.1 | 2026-04-14 | Source-integrity pass. **Citation corrections:** updated arXiv:2502.03771 to current title ("vCache: Verified Semantic Prompt Caching", Schroeder et al.); corrected arXiv:1503.03244 title to "Convolutional Neural Network Architectures for Matching Natural Language Sentences" (Hu et al. 2015); corrected arXiv:2509.09714 title (singular "Transformation"). **Removed citations whose arXiv IDs point to unrelated papers:** arXiv:1406.2673 (actually a Mondrian Forests paper, not Medhat sentiment analysis), arXiv:0806.2414 (actually an RNA pseudoknot paper, not Caruana 2006 supervised-learning comparison). **Removed citations that were real papers but did not support the inline claim:** arXiv:1506.06579 (Yosinski deep-visualization — real paper, but cited as support for activation-anomaly detection in a credential-extraction context, which it does not support); the bullets that depended on these were rewritten to stand on their own and are now explicitly labeled as emerging/uncited recommendations rather than as research-backed controls. **Reframed citations that overstated the source:** arXiv:2502.07776 is now cited only for cache timing side-channels and cross-user cache sharing (what the paper actually demonstrates), in the secondary-vector list, the Scenario 3 code comments, the Current Status section, and Preventive Control #7 — not for direct cached-credential retrieval; arXiv:2509.06338 is now framed as an embedding-layer perturbation primitive that bypasses safety alignment, with the credential-extraction connection presented as a theoretical extension; arXiv:2509.21884 is now framed as a prompt-leakage attack with SysVec as a defense, with the credential-leakage connection presented as a corollary in MCP deployments where secrets sit in the system prompt; arXiv:2502.03771 (vCache) is now framed as a defense paper whose adaptive-threshold mechanism could in principle expose a side-channel, not an attack basis. **Removed unsourced claims:** "94.2% accuracy / <2% false positives" performance numbers for SAFE-M-63 (raw numbers belong in the mitigation README, not here). **Other:** removed "Recommended Embedding Models" vendor-listing section (out of scope for a threat document); de-duplicated SAFE-M-32 from Preventive Controls (kept under Detective Controls) and renumbered; softened the <0.3 cosine-distance threshold to an empirically-calibrated example; updated "Current Status (2025)" to "(2025-2026)"; replaced subjective wording ("sophisticated") per style guide. **No technical claims about the attack itself were strengthened** — several were softened or explicitly labeled as theoretical extensions. The Description was caveated to make clear that direct end-to-end credential extraction from MCP-integrated stores has not been demonstrated in the open literature; the technique is a credible threat assembled from independently demonstrated primitives. Scenario 3 was renamed from "Prompt Cache Poisoning" to "Prompt Cache Probing" and the example code was rewritten to observe cache-hit timing signals (which the cited paper supports), with the response-body credential-matching extension explicitly labeled as a hypothetical MCP-specific behavior. | Bishnu Bista |
 
