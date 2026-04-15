@@ -2,11 +2,11 @@
 
 ## Overview
 
-Tactic: Execution (ATK-TA0002)  
-Technique ID: SAFE-T1112  
-Severity: High  
-First Observed: 2025 (public research)  
-Last Updated: 2026-03-11  
+**Tactic**: Execution (ATK-TA0002)  
+**Technique ID**: SAFE-T1112  
+**Severity**: High  
+**First Observed**: December 2025 (Unit 42 disclosure)  
+**Last Updated**: 2026-04-14
 
 ## Description
 
@@ -191,16 +191,16 @@ tags:
 
 ### Preventive Controls
 
-1. **TODO: Per-server sampling policy**: Require explicit per-server policy for whether sampling is allowed at all, and treat tool-enabled sampling as a separate higher-risk capability.  
-2. **TODO: Prompt and provenance transparency**: Show the complete sampling prompt, requested tools, model constraints, and token budget before approval.  
-3. **TODO: Budget and iteration caps**: Enforce hard per-request and per-session limits on sampling count, `maxTokens`, and tool-loop iterations.  
-4. **TODO: Sampling output isolation**: Keep nested sampling output logically separated from planner state until reviewed, logged, and policy-checked.  
+1. **[SAFE-M-29: Explicit Privilege Boundaries](../../mitigations/SAFE-M-29/README.md)**: Require explicit per-server policy for whether `sampling/createMessage` is permitted at all, and treat tool-enabled sampling (the `sampling.tools` client capability) as a separate higher-privilege tier than text-only sampling.
+2. **[SAFE-M-15: User Warning Systems](../../mitigations/SAFE-M-15/README.md)**: Show the complete sampling prompt, requested tools, `toolChoice` mode, model constraints, and `maxTokens` budget before approval. Aligns with the MCP spec recommendation that clients "Allow users to view and edit prompts before sending" ([MCP spec: Sampling — User Interaction Model](https://modelcontextprotocol.io/specification/2025-11-25/client/sampling)).
+3. **[SAFE-M-73: Sampling Budget and Iteration Caps](../../mitigations/SAFE-M-73/README.md)**: Enforce hard per-request and per-session limits on sampling count, cumulative `maxTokens`, and tool-loop iterations. Aligns with the MCP spec recommendations that "Clients **SHOULD** implement rate limiting" and that "Both parties **SHOULD** implement iteration limits for tool loops".
+4. **[SAFE-M-21: Output Context Isolation](../../mitigations/SAFE-M-21/README.md)**: Keep nested sampling output logically separated from planner state until reviewed, logged, and policy-checked, so a malicious server's sampling response cannot directly seed subsequent reasoning.
 
 ### Detective Controls
 
-1. **SAFE-M-11: Behavioral Monitoring**: Track per-server sampling frequency, approval patterns, and correlations between sampling and sensitive actions.  
-2. **SAFE-M-12: Audit Logging**: Log full sampling requests, approval decisions, requested tools, follow-on actions, and provider cost or token metadata when available.  
-3. **SAFE-M-20: Anomaly Detection**: Detect bursty sampling, quota-drain patterns, or unusual sampling-to-tool execution chains that depart from learned baselines.  
+1. **[SAFE-M-11: Behavioral Monitoring](../../mitigations/SAFE-M-11/README.md)**: Track per-server sampling frequency, approval patterns, and correlations between sampling and sensitive actions.
+2. **[SAFE-M-12: Audit Logging](../../mitigations/SAFE-M-12/README.md)**: Log full sampling requests, approval decisions, requested tools, follow-on actions, and provider cost or token metadata when available.
+3. **[SAFE-M-20: Anomaly Detection](../../mitigations/SAFE-M-20/README.md)**: Detect bursty sampling, quota-drain patterns, or unusual sampling-to-tool execution chains that depart from learned baselines.
 
 ### Response Procedures
 
@@ -227,19 +227,20 @@ tags:
 
 ## References
 
-* https://modelcontextprotocol.io/specification/2025-11-25/client/sampling
-* https://modelcontextprotocol.io/specification/draft/basic/transports
-* https://unit42.paloaltonetworks.com/model-context-protocol-attack-vectors/
-* https://attack.mitre.org/techniques/T1499/003/
-* https://attack.mitre.org/techniques/T1204/
+- [MCP Specification — Client: Sampling (2025-11-25)](https://modelcontextprotocol.io/specification/2025-11-25/client/sampling)
+- [New Prompt Injection Attack Vectors Through MCP Sampling — Unit 42, December 2025](https://unit42.paloaltonetworks.com/model-context-protocol-attack-vectors/)
+- [MITRE ATT&CK T1499.003 — Application Exhaustion Flood](https://attack.mitre.org/techniques/T1499/003/)
+- [MITRE ATT&CK T1204 — User Execution](https://attack.mitre.org/techniques/T1204/)
 
 ## MITRE ATT&CK Mapping
 
-* **T1499.003 – Application Exhaustion Flood**: repeated or oversized sampling requests can drive quota exhaustion and degrade service availability.  
-* **T1204 – User Execution**: many real-world exploit paths depend on the user approving or not scrutinizing the sampling request presented by the client.  
+- [T1499.003 — Application Exhaustion Flood](https://attack.mitre.org/techniques/T1499/003/): repeated or oversized sampling requests can drive quota exhaustion and degrade service availability.
+- [T1204 — User Execution](https://attack.mitre.org/techniques/T1204/): many real-world exploit paths depend on the user approving or not scrutinizing the sampling request presented by the client.
 
 ## Version History
 
-Version | Date | Changes | Author
---- | --- | --- | ---
-1.0 | 2026-03-11 | Initial documentation for sampling-specific MCP abuse technique | The SAFE-MCP Authors
+| Version | Date | Changes | Author |
+|---------|------|---------|--------|
+| 1.0 | 2026-03-11 | Initial documentation for sampling-specific MCP abuse technique | The SAFE-MCP Authors |
+| 1.1 | 2026-04-14 | Post-merge validation: add missing root README TTP-table row; bold Overview labels; link detective-control mitigations to `mitigations/SAFE-M-*/README.md`; mark preventive controls as SAFE-M-pending with MCP-spec anchors; convert references to markdown links; hyperlink MITRE mappings; drop non-substantive transports citation; sharpen First Observed | bishnu bista |
+| 1.2 | 2026-04-14 | Resolve preventive-control TODOs by mapping to existing mitigations (SAFE-M-29, SAFE-M-15, SAFE-M-21) and adding new SAFE-M-73 for sampling-specific budget and iteration caps | bishnu bista |

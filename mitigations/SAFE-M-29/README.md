@@ -15,6 +15,7 @@ By implementing explicit privilege boundaries, organizations can prevent tool-ch
 ## Mitigates
 - [SAFE-T1703](../../techniques/SAFE-T1703/README.md): Tool-Chaining Pivot
 - [SAFE-T1104](../../techniques/SAFE-T1104/README.md): Over-Privileged Tool Abuse
+- [SAFE-T1112](../../techniques/SAFE-T1112/README.md): Sampling Request Abuse — per-server policy gating for whether `sampling/createMessage` is permitted, and treating tool-enabled sampling (`sampling.tools` capability) as a separate higher-privilege tier
 
 ## Technical Implementation
 
