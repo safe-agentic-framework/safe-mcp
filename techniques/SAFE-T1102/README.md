@@ -120,6 +120,19 @@ tags:
   - safe.t1102
 ```
 
+### Community Detection Rules
+
+#### ATR (Agent Threat Rules)
+[ATR](https://github.com/Agent-Threat-Rule/agent-threat-rules) provides 12 YAML-based detection rules mapping to SAFE-T1102, covering direct injection, indirect injection, jailbreak attempts, system prompt override, multi-turn injection, encoding-based evasion, CJK patterns, structured data injection, and nested payloads:
+
+ATR-2026-001, ATR-2026-002, ATR-2026-003, ATR-2026-004, ATR-2026-005, ATR-2026-080, ATR-2026-081, ATR-2026-083, ATR-2026-084, ATR-2026-091, ATR-2026-097, ATR-2026-104
+
+```bash
+npx agent-threat-rules scan events.json
+```
+
+Full mapping: [ATR SAFE-MCP Mapping](https://github.com/Agent-Threat-Rule/agent-threat-rules/blob/main/docs/SAFE-MCP-MAPPING.md)
+
 ### Behavioral Indicators
 - AI suddenly changes task focus after processing tool output
 - Execution of commands unrelated to the original user request

@@ -166,6 +166,18 @@ The SAFE-MCP framework defines 14 tactics that align with the MITRE ATT&CK metho
 | Exfiltration         | 6                    |
 | Impact               | 6                    |
 
+## Community Detection Tools
+
+The following open-source projects provide detection capabilities for SAFE-MCP techniques:
+
+| Project | Type | Coverage | License |
+| ------- | ---- | -------- | ------- |
+| [ATR (Agent Threat Rules)](https://github.com/Agent-Threat-Rule/agent-threat-rules) | YAML detection ruleset (Sigma/YARA-style) | 78/85 techniques (91.8%) | MIT |
+
+ATR provides 108 machine-readable detection rules that map to SAFE-MCP techniques. See the [ATR → SAFE-MCP mapping](https://github.com/Agent-Threat-Rule/agent-threat-rules/blob/main/docs/SAFE-MCP-MAPPING.md) for the full cross-reference.
+
+To add your project to this list, open a PR with your detection tool and a coverage mapping.
+
 ## Usage Guidelines
 
 - Use technique IDs (e.g., SAFE-T1001) for consistent reference across documentation
