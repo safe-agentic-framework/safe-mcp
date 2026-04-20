@@ -25,6 +25,12 @@ SAFE-MCP is a comprehensive security framework for documenting and mitigating th
 3. **Compliance Officers**: Map SAFE-MCP techniques to your existing security controls via MITRE ATT&CK linkages
 4. **Red Teams**: Reference attack techniques for security testing of MCP deployments
 
+## Documentation
+
+- [Security Quickstart Guide](docs/quickstart.md) - Step-by-step guide for securing MCP deployments  
+- [Security Glossary](docs/glossary.md) - Standardized terminology and technique links
+
+For comprehensive technique details, see the TTP Reference Table below.
 ## TTP Reference Table
 
 This table provides a comprehensive reference of all Tactics, Techniques, and Procedures (TTPs) defined in the SAFE-MCP framework.
