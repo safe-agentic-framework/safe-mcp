@@ -1,0 +1,557 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://safe-mcp.org/schemas/technique-schema.json",
+  "title": "SAFE-MCP Technique Schema",
+  "description": "Comprehensive schema for SAFE-MCP security techniques",
+  "type": "object",
+  "required": ["id", "name", "tactic", "severity", "description"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^SAFE-T[0-9]{4}(\\.[0-9]{3})?$",
+      "description": "Unique technique identifier (e.g., SAFE-T1001 or SAFE-T1001.001 for sub-techniques)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name of the technique"
+    },
+    "tactic": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^ATK-TA[0-9]{4}$",
+          "description": "Tactic identifier aligned with MITRE ATT&CK"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the tactic"
+        }
+      }
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["Critical", "High", "Medium", "Low"],
+      "description": "Severity level of the technique"
+    },
+    "first_observed": {
+      "type": "string",
+      "description": "When this technique was first observed or discovered"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when the technique documentation was last updated"
+    },
+    "description": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "description": "Array of paragraphs describing the technique"
+    },
+    "attack_vectors": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "description": "Primary attack vector"
+        },
+        "secondary": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional attack vectors"
+        }
+      }
+    },
+    "technical_details": {
+      "type": "object",
+      "properties": {
+        "prerequisites": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Prerequisites required for the attack"
+        },
+        "attack_flow": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["stage", "description"],
+            "properties": {
+              "stage": {
+                "type": "string",
+                "description": "Name of the attack stage"
+              },
+              "description": {
+                "type": "string",
+                "description": "Description of what happens in this stage"
+              }
+            }
+          },
+          "description": "Step-by-step attack flow"
+        },
+        "example_scenario": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "description": "Example code or configuration"
+            },
+            "language": {
+              "type": "string",
+              "description": "Programming language or format (e.g., json, python)"
+            },
+            "description": {
+              "type": "string",
+              "description": "Explanation of the example"
+            }
+          }
+        },
+        "advanced_techniques": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "description"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the advanced technique variation"
+              },
+              "description": {
+                "type": "string",
+                "description": "Description of the technique"
+              },
+              "year": {
+                "type": "integer",
+                "description": "Year the research was published"
+              },
+              "citations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "authors": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "impact_assessment": {
+      "type": "object",
+      "required": ["confidentiality", "integrity", "availability", "scope"],
+      "properties": {
+        "confidentiality": {
+          "type": "object",
+          "required": ["level", "description"],
+          "properties": {
+            "level": {
+              "type": "string",
+              "enum": ["High", "Medium", "Low"]
+            },
+            "description": {
+              "type": "string"
+            }
+          }
+        },
+        "integrity": {
+          "type": "object",
+          "required": ["level", "description"],
+          "properties": {
+            "level": {
+              "type": "string",
+              "enum": ["High", "Medium", "Low"]
+            },
+            "description": {
+              "type": "string"
+            }
+          }
+        },
+        "availability": {
+          "type": "object",
+          "required": ["level", "description"],
+          "properties": {
+            "level": {
+              "type": "string",
+              "enum": ["High", "Medium", "Low"]
+            },
+            "description": {
+              "type": "string"
+            }
+          }
+        },
+        "scope": {
+          "type": "object",
+          "required": ["level", "description"],
+          "properties": {
+            "level": {
+              "type": "string",
+              "enum": ["Local", "Adjacent", "Network-wide"]
+            },
+            "description": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "detection_methods": {
+      "type": "object",
+      "properties": {
+        "indicators_of_compromise": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of indicators of compromise"
+        },
+        "sigma_rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "author": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string",
+                "format": "date"
+              },
+              "references": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "logsource": {
+                "type": "object"
+              },
+              "detection": {
+                "type": "object"
+              },
+              "falsepositives": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "level": {
+                "type": "string"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "file_path": {
+                "type": "string",
+                "description": "Path to the Sigma rule YAML file"
+              }
+            }
+          }
+        },
+        "behavioral_indicators": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Behavioral patterns that may indicate this technique"
+        },
+        "ai_based_detection": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "mitigation_strategies": {
+      "type": "object",
+      "properties": {
+        "preventive_controls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^SAFE-M-[0-9]+$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "detective_controls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^SAFE-M-[0-9]+$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "response_procedures": {
+          "type": "object",
+          "properties": {
+            "immediate_actions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "investigation_steps": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "remediation": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "related_techniques": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^SAFE-T[0-9]{4}(\\.[0-9]{3})?$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "relationship": {
+            "type": "string",
+            "description": "Description of how techniques are related"
+          }
+        }
+      }
+    },
+    "sub_techniques": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^SAFE-T[0-9]{4}\\.[0-9]{3}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "real_world_incidents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "date", "description"],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "impact": {
+            "type": "string"
+          },
+          "technique": {
+            "type": "string"
+          },
+          "cve": {
+            "type": "string"
+          },
+          "references": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "url"],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["specification", "research", "blog", "tool", "standard", "other"]
+          }
+        }
+      }
+    },
+    "mitre_attack_mapping": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^T[0-9]{4}(\\.?[0-9]{3})?$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "version_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["version", "date", "changes", "author"],
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "changes": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "test_files": {
+      "type": "object",
+      "properties": {
+        "detection_rule": {
+          "type": "string",
+          "description": "Path to detection rule YAML file"
+        },
+        "test_logs": {
+          "type": "string",
+          "description": "Path to test logs JSON file"
+        },
+        "test_script": {
+          "type": "string",
+          "description": "Path to test script"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "file_path": {
+          "type": "string",
+          "description": "Path to the source markdown file"
+        },
+        "last_parsed": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when this was last parsed"
+        }
+      }
+    }
+  }
+}
