@@ -1,0 +1,109 @@
+- id: "SAFE-T0001"
+  version: "0.1.0"
+  name: "Prompt Injection"
+  tactic: "Execution"
+  description: "Attacker crafts inputs that steer the model or tools to perform unintended actions, exfiltrate secrets, or bypass guardrails."
+  severity: "High"
+  first_observed: "2022-Q2"
+  last_updated: "2025-11-04"
+  tags: ["llm", "injection", "tooling"]
+  mitre_mappings: ["T1565.001"]
+  attack_vectors:
+    - "Direct prompt manipulation through user input"
+    - "Indirect injection via external documents or web content"
+    - "Tool manipulation in LLM agents"
+  prerequisites:
+    - "Access to LLM interface or application"
+  impact_assessment:
+    confidentiality: "High"
+    integrity: "High"
+    availability: "Medium"
+  detections:
+    - type: "Heuristic"
+      ref: "prompt-injection-keywords"
+      notes: "Keyword/structure based checks"
+  mitigations:
+    - "System prompt hardening"
+    - "Input/output validation"
+    - "Tool allow-lists"
+    - "Privilege separation between user and system instructions"
+  sub_techniques: []
+  real_world_incidents:
+    - title: "Remoteli.io Twitter bot manipulation"
+      date: "2022-09"
+      reference: "https://twitter.com/greshake/status/1569479701436784640"
+    - title: "Bing Chat indirect prompt injection"
+      date: "early 2023"
+      reference: "https://greshake.github.io/"
+    - title: "DPD chatbot jailbreak incident"
+      date: "2024-01-18"
+      reference: "https://www.bbc.com/news/technology-68025677"
+  proof_of_concept:
+    - "https://learnprompting.org/docs/prompt_hacking/injection"
+    - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+  related_techniques:
+    - "SAFE-T0002"
+  references:
+    - "https://simonwillison.net/2022/Sep/12/prompt-injection/"
+    - "https://www.ibm.com/think/topics/prompt-injection"
+  provenance:
+    created: "2025-09-11"
+    authors: ["bochristopher"]
+    source_of_truth: "Both"
+  status: "draft"
+
+- id: "SAFE-T0002"
+  version: "0.1.0"
+  name: "Model Evasion"
+  tactic: "Defense_Evasion"
+  description: "Inputs are manipulated to bypass filters or safety checks, avoiding detection while achieving disallowed outputs or behaviors."
+  severity: "Medium"
+  first_observed: "late 2022"
+  last_updated: "2025-11-04"
+  tags: ["evasion", "safety", "jailbreak"]
+  mitre_mappings: ["T1070"]
+  attack_vectors:
+    - "Obfuscated or encoded prompts"
+    - "Role-playing scenarios (e.g., DAN prompts)"
+    - "Multi-turn conversational manipulation"
+    - "Low-resource language exploitation"
+  prerequisites:
+    - "Understanding of model safety guidelines"
+    - "Access to model interface"
+  impact_assessment:
+    confidentiality: "Medium"
+    integrity: "Medium"
+    availability: "Low"
+  detections:
+    - type: "Query"
+      ref: "anomaly-scoring-outbound"
+  mitigations:
+    - "Adversarial training on jailbreak examples"
+    - "Rate limiting and behavioral monitoring"
+    - "Multi-stage content moderation"
+    - "Output validation and filtering"
+  sub_techniques: []
+  real_world_incidents:
+    - title: "DAN jailbreak prompts for ChatGPT"
+      date: "late 2022"
+      reference: "https://www.cnbc.com/2023/02/06/chatgpt-jailbreak-forces-it-to-break-its-own-rules.html"
+    - title: "Google Bard jailbreak attempts"
+      date: "mid-2023"
+      reference: "https://danbrun.medium.com/how-to-jailbreak-googles-bard-2eca947d1900"
+    - title: "DPD chatbot circumventing safety rules"
+      date: "2024-01-18"
+      reference: "https://www.bbc.com/news/technology-68025677"
+  proof_of_concept:
+    - "https://www.jailbreakchat.com/"
+    - "https://arxiv.org/abs/2310.08419"
+    - "https://github.com/0xk1h0/ChatGPT_DAN"
+  related_techniques:
+    - "SAFE-T0001"
+  references:
+    - "https://arxiv.org/abs/2308.03825"
+    - "https://learnprompting.org/blog/injection_jailbreaking"
+  provenance:
+    created: "2025-09-11"
+    authors: ["bochristopher"]
+    source_of_truth: "Both"
+  status: "draft"
