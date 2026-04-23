@@ -32,13 +32,25 @@
   {
     "EventID": 36882,
     "Provider_Name": "Schannel",
-    "Message": "TLS certificate mismatch detected for service analytics-hub.local",
+    "Message": "The certificate received from the remote server was issued by an untrusted certificate authority for analytics-hub.local",
     "expected_detection": true
   },
   {
     "EventID": 36882,
     "Provider_Name": "Schannel",
     "Message": "TLS handshake completed with trusted certificate",
+    "expected_detection": false
+  },
+  {
+    "EventID": 36884,
+    "Provider_Name": "Schannel",
+    "Message": "The TLS server hostname does not match the certificate host name for analytics-hub.local",
+    "expected_detection": true
+  },
+  {
+    "EventID": 36884,
+    "Provider_Name": "Schannel",
+    "Message": "TLS session established, certificate subject validated",
     "expected_detection": false
   },
   {

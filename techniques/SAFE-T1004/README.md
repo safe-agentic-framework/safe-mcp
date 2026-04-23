@@ -1,11 +1,11 @@
 # SAFE-T1004: Server Impersonation / Name-Collision
 
 ## Overview
-**Tactic**: Credential Access (ATK-TA0006), Initial Access (ATK-TA0001)  
+**Tactic**: Credential Access (ATK-TA0006), Collection (ATK-TA0009)  
 **Technique ID**: SAFE-T1004  
 **Severity**: High  
-**First Observed**: Documented in DNS cache poisoning attacks (2008)  
-**Last Updated**: 2026-02-24
+**First Observed**: DNS-spoofing threat model formalized in RFC 3833 (2004, citing earlier academic analysis); widely publicized via Kaminsky DNS cache-poisoning disclosure in 2008 (CVE-2008-1447)  
+**Last Updated**: 2026-04-23
 
 ## Description
 Server Impersonation / Name-Collision is an adversary-in-the-middle technique where attackers register or advertise a malicious server using the same name or identifier as a trusted one. By exploiting weaknesses in naming and discovery systems (for example DNS, mDNS, or local MCP server registries), clients can be redirected to attacker-controlled endpoints.
@@ -67,7 +67,7 @@ According to public reporting and ATT&CK campaign tracking, attackers use multip
 ### Current Status (2026)
 Organizations are increasingly prioritizing stronger discovery and identity controls, but coverage remains uneven:
 - DNSSEC adoption continues to expand, but not all enterprise resolvers and zones validate consistently.
-- MCP roadmap work includes stronger server identity/discovery signals through `.well-known` metadata endpoints.
+- The MCP roadmap's "Server Cards" initiative is developing a `.well-known` URL standard for publishing structured server metadata so browsers, crawlers, and registries can discover a server's advertised capabilities without first connecting to it. (Advertised, not verified — Server Cards describe capabilities; they do not replace server-identity authentication.)
 - Teams with mixed legacy protocols and inconsistent registry governance remain exposed to name-collision attacks.
 
 ## Detection Methods
@@ -86,14 +86,15 @@ Organizations are increasingly prioritizing stronger discovery and identity cont
 title: Detection of Server Impersonation / Name-Collision (SAFE-T1004)
 id: 9f3c2a8e-7d4b-4c2f-9a1e-8e2b7f9c1d23
 status: experimental
-description: Detects indicators of server impersonation or name-collision attacks across DNS, ARP, TLS, and local registry events
+description: Detects indicators of server impersonation or name-collision attacks across DNS, ARP, TLS, and local registry events. Message-text selections are illustrative; operators should tailor them to their own telemetry pipeline. Elevate from medium to high only when correlated with expected MCP server identity, registry changes, or DHCP/ARP anomalies.
 author: Ryan Jennings
 date: 2025-11-22
-modified: 2026-02-24
+modified: 2026-04-23
 references:
   - https://github.com/SAFE-MCP/safe-mcp/tree/main/techniques/SAFE-T1004
   - https://attack.mitre.org/techniques/T1557/
-  - https://attack.mitre.org/techniques/T1565/002/
+  - https://attack.mitre.org/techniques/T1557/002/
+  - https://attack.mitre.org/techniques/T1557/003/
 logsource:
   product: windows
   service: system
@@ -114,23 +115,34 @@ detection:
     Message|contains:
       - "duplicate ARP entry"
       - "MAC address mismatch"
-  selection_tls:
+  selection_tls_untrusted_ca:
     EventID: 36882
     Provider_Name: "Schannel"
     Message|contains:
-      - "certificate mismatch"
+      - "issued by an untrusted"
+      - "untrusted certificate authority"
       - "self-signed certificate"
-  condition: selection_dns or selection_odr or selection_arp or selection_tls
+  selection_tls_hostname_mismatch:
+    EventID: 36884
+    Provider_Name: "Schannel"
+    Message|contains:
+      - "host name"
+      - "hostname"
+      - "name mismatch"
+  condition: selection_dns or selection_odr or selection_arp or selection_tls_untrusted_ca or selection_tls_hostname_mismatch
 falsepositives:
   - Legitimate service redeployments that temporarily create duplicate registry entries
   - Controlled test environments using self-signed certificates
   - Planned DNS cutovers during maintenance windows
-level: high
+  - Routine DNS-client timeouts (1014) unrelated to name collision
+  - Schannel events (36882/36884) from upstream misconfigurations rather than spoofing
+level: medium
 tags:
   - attack.credential_access
+  - attack.collection
   - attack.t1557
   - attack.t1557.002
-  - attack.t1565.002
+  - attack.t1557.003
   - safe.t1004
 ```
 
@@ -177,19 +189,20 @@ tags:
 
 ## References
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/specification)
+- [Model Context Protocol Roadmap — Server Cards initiative](https://modelcontextprotocol.io/development/roadmap)
 - [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/)
 - [Sea Turtle - ATT&CK Group G1041](https://attack.mitre.org/groups/G1041/)
-- [Windows ODR Tool (odr.exe)](https://learn.microsoft.com/en-us/windows/ai/mcp/odr-tool)
-- [Internet Society - DNSSEC Deployment Maps](https://www.internetsociety.org/deploy360/dnssec/maps/)
+- [Windows ODR Tool (odr.exe) - Microsoft Learn](https://learn.microsoft.com/en-us/windows/ai/mcp/odr-tool)
+- [RFC 3833 - Threat Analysis of the Domain Name System (DNS)](https://www.rfc-editor.org/rfc/rfc3833.html)
+- [CVE-2008-1447 - DNS Cache Poisoning (Kaminsky)](https://nvd.nist.gov/vuln/detail/CVE-2008-1447)
+- [Internet Society - DNSSEC Deployment Maps (historical snapshot, 2021-06-14)](https://www.internetsociety.org/deploy360/dnssec/maps/)
 - [APNIC DNSSEC Validation World Map](https://stats.labs.apnic.net/dnssec)
-- [European Commission JRC Report on DNSSEC Adoption (2025)](https://publications.jrc.ec.europa.eu/repository/handle/JRC143100)
-- [Model Context Protocol Roadmap](https://modelcontextprotocol.io/development/roadmap)
+- [JRC - Internet Standards: DNSSEC standards, an analysis of uptake in the EU (JRC143100, 2025)](https://publications.jrc.ec.europa.eu/repository/handle/JRC143100)
 
 ## MITRE ATT&CK Mapping
 - [T1557 - Adversary-in-the-Middle](https://attack.mitre.org/techniques/T1557/)
 - [T1557.002 - Adversary-in-the-Middle: ARP Cache Poisoning](https://attack.mitre.org/techniques/T1557/002/)
-- [T1565.002 - Data Manipulation: DNS Manipulation](https://attack.mitre.org/techniques/T1565/002/)
-- [T1071.004 - Application Layer Protocol: DNS](https://attack.mitre.org/techniques/T1071/004/)
+- [T1557.003 - Adversary-in-the-Middle: DHCP Spoofing](https://attack.mitre.org/techniques/T1557/003/)
 
 ## Version History
 | Version | Date | Changes | Author |
@@ -197,3 +210,4 @@ tags:
 | 1.0 | 2025-11-22 | Initial documentation with ODR explanation | Ryan Jennings |
 | 1.1 | 2026-02-24 | Replaced placeholder mitigations, corrected related-technique mapping, updated detection rule example, and added clearer ODR scope language | Bishnu Bista |
 | 1.2 | 2026-02-24 | Corrected ATT&CK reference for Sea Turtle, aligned DNS EventID 1014 example wording, reduced over-specific ARP event assumptions, and added ODR/APNIC references for source clarity | Bishnu Bista |
+| 1.3 | 2026-04-23 | Overview tactic line corrected to Credential Access + Collection (ATT&CK-faithful to T1557/T1557.002/T1557.003; prior "Initial Access" claim was unsupported); MITRE mapping: replaced T1565.002 (Transmitted Data Manipulation, not DNS-specific) and T1071.004 (DNS-as-C2, not DNS-is-attacked) with T1557.003 (DHCP Spoofing) to match the rogue-DHCP attack vector; Sigma rule split Schannel EventID 36882 (untrusted CA) vs 36884 (hostname mismatch) with Microsoft-faithful Message|contains text, lowered level from high to medium, tactic tags reconciled to attack.credential_access + attack.collection; synced embedded Sigma block in README to canonical detection-rule.yml; added 36882/36884 test-log coverage (12/12 pass); named "MCP Server Cards" roadmap initiative explicitly with accurate "discover advertised capabilities" wording; First Observed anchored to RFC 3833 (2004) + Kaminsky 2008 (CVE-2008-1447); used verbatim JRC report title; annotated Internet Society DNSSEC maps as a 2021 historical snapshot | bishnu bista |
