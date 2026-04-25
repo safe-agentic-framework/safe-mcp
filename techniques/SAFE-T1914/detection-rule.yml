@@ -1,0 +1,92 @@
+title: SAFE-T1914 Tool-to-Tool Exfiltration Detection
+id: a60bde37-bd87-4238-bf7d-deeb001e608c
+status: experimental
+description: Detects potential tool-to-tool exfiltration through sequential data collection and communication tool usage patterns
+author: Smaran Dhungana
+date: 2025-09-02
+modified: 2025-09-02
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1914
+  - https://attack.mitre.org/techniques/T1041/
+  - https://attack.mitre.org/techniques/T1567/
+  - https://attack.mitre.org/techniques/T1005/
+logsource:
+  product: mcp
+  service: tool_execution
+detection:
+  selection_data_collection_tools:
+    tool_name:
+      - 'file_reader'
+      - 'database_query'
+      - 'api_client'
+      - 'environment_reader'
+      - 'directory_browser'
+      - 'read_file'
+      - 'list_directory'
+      - 'system_info'
+      - 'credential_reader'
+      - 'config_reader'
+    result_status: 'success'
+  selection_communication_tools:
+    tool_name:
+      - 'email_sender'
+      - 'webhook_client'
+      - 'http_client'
+      - 'file_uploader'
+      - 'slack_messenger'
+      - 'discord_bot'
+      - 'telegram_bot'
+      - 'ftp_client'
+      - 'sftp_client'
+      - 'cloud_uploader'
+    result_status: 'success'
+  selection_sensitive_data_patterns:
+    tool_output|contains:
+      - '/etc/passwd'
+      - '/etc/shadow'
+      - 'BEGIN PRIVATE KEY'
+      - 'BEGIN RSA PRIVATE KEY'
+      - 'aws_access_key'
+      - 'api_key'
+      - 'password'
+      - 'secret'
+      - 'token'
+      - 'credential'
+      - 'ssh_key'
+      - 'database_url'
+  selection_external_endpoints:
+    destination_url|contains:
+      - 'http://'
+      - 'https://'
+      - 'ftp://'
+      - 'sftp://'
+    external_domain: true
+  timeframe: 15m
+  condition: (selection_data_collection_tools and selection_communication_tools) or (selection_sensitive_data_patterns and selection_external_endpoints)
+falsepositives:
+  - Legitimate automated reporting workflows that collect and send system data
+  - Debugging and troubleshooting activities involving data collection and external notification  
+  - Scheduled backup operations that read files and upload to external storage
+  - Monitoring systems that collect metrics and send alerts to external services
+  - Development workflows that read configuration files and deploy to external systems
+  - Compliance auditing tools that gather system information for external reporting
+level: high
+tags:
+  - attack.exfiltration
+  - attack.t1041
+  - attack.t1052
+  - attack.t1567
+  - attack.t1005
+  - safe.t1914
+  - mcp.tool_chaining
+  - data_exfiltration
+fields:
+  - tool_name
+  - tool_output
+  - destination_url
+  - user_id
+  - session_id
+  - timestamp
+  - result_status
+  - data_volume
+  - external_domain
