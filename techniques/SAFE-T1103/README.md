@@ -1,11 +1,20 @@
 # SAFE-T1103: Fake Tool Invocation (Function Spoofing)
 
+<!-- TODO (identity / cross-reference): SAFE-T1102's Related Techniques section
+     describes SAFE-T1103 as "Indirect Prompt Injection - Specific subset
+     focusing on third-party data". This file's title and content describe
+     "Fake Tool Invocation (Function Spoofing)" instead. The two scopes are
+     distinct techniques. Original authors (Bo Redfearn, Shekhar Chaudhary)
+     should reconcile: either (a) update T1102's cross-reference to match this
+     file's actual scope, or (b) restructure T1103 to cover Indirect Prompt
+     Injection and move Fake Tool Invocation to a new technique ID. -->
+
 ## Technique Overview
 
 **Technique ID:** SAFE-T1103  
 **Technique Name:** Fake Tool Invocation (Function Spoofing)  
 **Tactic:** Execution (ATK-TA0002)  
-**MITRE ATT&CK Mapping:** [T1574 - Hijack Execution Flow](https://attack.mitre.org/techniques/T1574/)
+**MITRE ATT&CK Mapping:** [T1565 - Data Manipulation](https://attack.mitre.org/techniques/T1565/) (primary, covers forged JSON-RPC payloads in transit), [T1190 - Exploit Public-Facing Application](https://attack.mitre.org/techniques/T1190/) (when MCP transport is network-exposed)
 
 ## Description
 
@@ -96,26 +105,14 @@ Creating fake tool calls to access restricted resources:
 
 ## Technical Details
 
-### Attack Vector Workflow
-
-```mermaid
-graph TD
-  A[Attacker] -->|Publishes| B[Poisoned Third‑Party Content]
-  B -->|Hosted at| C[Website/API/Repo/Email]
-  C -->|Fetched by| D[MCP Retrieval/Browse Tool]
-  D -->|Passes content| E[LLM Context]
-  E -->|Interprets hidden instructions| F[Behavior Deviation]
-  F --> G{Outcomes}
-  G --> H[Data Exfiltration]
-  G --> I[Unauthorized Actions]
-  G --> J[Context Manipulation]
-
-  style A fill:#d73027,stroke:#000,stroke-width:2px,color:#fff
-  style B fill:#fc8d59,stroke:#000,stroke-width:2px
-  style D fill:#91bfdb,stroke:#000,stroke-width:2px
-  style E fill:#fee090,stroke:#000,stroke-width:2px
-  style G fill:#d73027,stroke:#000,stroke-width:2px,color:#fff
-```
+<!-- TODO: The previous Mermaid diagram in this slot (added in v1.1) described
+     Indirect Prompt Injection flow ("Poisoned Third-Party Content → MCP
+     Retrieval/Browse Tool → LLM Context → Behavior Deviation"), which is a
+     different technique from this file's scope (Fake Tool Invocation /
+     JSON-RPC message forgery). Removed to avoid technical inaccuracy.
+     A correct workflow diagram should be authored once the identity question
+     at the top of this file (T1103 vs. T1102's cross-reference) is resolved
+     by the original authors. -->
 
 ### MCP Tool Call Protocol
 Normal MCP tool invocation follows this flow:
@@ -211,6 +208,8 @@ class ToolCallValidator:
         return True
 ```
 
+See [SAFE-M-11: Behavioral Monitoring](../../mitigations/SAFE-M-11/README.md).
+
 ### Log Analysis Patterns
 ```bash
 # Detect tool calls without prior registration
@@ -223,6 +222,8 @@ grep -E "tools/call.*name.*(admin|root|sudo|escalate|bypass)" mcp_logs/
 # Detect unusual parameter combinations
 grep -E "elevated.*true|bypass.*true|sudo.*true" tool_calls.log
 ```
+
+See [SAFE-M-12: Audit Logging](../../mitigations/SAFE-M-12/README.md).
 
 ### Network Monitoring
 ```python
@@ -246,12 +247,74 @@ def detect_tool_spoofing(websocket_traffic):
                 alert_fake_tool_invocation(message)
 ```
 
+See [SAFE-M-11: Behavioral Monitoring](../../mitigations/SAFE-M-11/README.md).
+
+### Detection Rules
+
+**Important**: The following rule is written in Sigma format and contains example patterns only. Real-world fake-tool-invocation detection benefits from session-aware correlation (matching `tools/call` events against prior `tools/list` registrations from the same `server_id`), which a flat-pattern Sigma rule cannot fully express. Treat this rule as a high-signal first pass; layer correlation logic in your SIEM. The standalone copy lives at [`detection-rule.yml`](detection-rule.yml).
+
+```yaml
+# EXAMPLE SIGMA RULE - Not comprehensive
+title: MCP Fake Tool Invocation Detection
+id: c6b5f97b-89e6-4f36-b5a9-9959a5550727
+status: experimental
+description: Detects potential fake or spoofed tool invocation in MCP, including suspicious tool-name keywords (admin/sudo/escalate/bypass) and suspicious argument flags (bypass_acl, elevated, sudo).
+author: SAFE-MCP Team
+date: 2026-04-25
+references:
+  - https://github.com/safe-agentic-framework/safe-mcp/tree/main/techniques/SAFE-T1103
+  - https://www.jsonrpc.org/specification
+  - https://cwe.mitre.org/data/definitions/345.html
+logsource:
+  product: mcp
+  service: tool_invocation
+detection:
+  selection_method:
+    event.action: 'tools/call'
+  selection_suspicious_tool_name:
+    tool.name|contains:
+      - 'admin'
+      - 'root'
+      - 'sudo'
+      - 'escalate'
+      - 'bypass'
+      - 'system_'
+      - 'shell'
+      - 'eval'
+      - 'session_escalate'
+  selection_suspicious_arguments:
+    tool.arguments|contains:
+      - 'bypass_acl'
+      - 'bypass_restrictions'
+      - 'elevated'
+      - 'unrestricted'
+      - 'sudo'
+  condition: selection_method and (selection_suspicious_tool_name or selection_suspicious_arguments)
+falsepositives:
+  - Legitimate administrative tools registered with admin-related names
+  - Internal CI/CD tooling that intentionally uses elevated arguments
+  - Authorized security testing
+level: high
+tags:
+  - attack.execution
+  - attack.t1565
+  - attack.t1190
+  - safe.t1103
+fields:
+  - tool.name
+  - tool.arguments
+  - server.id
+  - event.timestamp
+```
+
 ### Behavioral Analysis
 - **Unusual Tool Names**: Tools with administrative or system-level names
 - **Parameter Anomalies**: Unexpected parameters like "bypass", "elevated", "sudo"
 - **Execution Patterns**: Tools called without prior registration events
 - **Timing Analysis**: Tool calls that don't correlate with user actions
 - **Source Validation**: Calls originating from unexpected channels
+
+See [SAFE-M-11: Behavioral Monitoring](../../mitigations/SAFE-M-11/README.md).
 
 ## Mitigation
 
@@ -507,7 +570,8 @@ class FakeToolInvocationTester:
 
 ## References
 
-- [MITRE ATT&CK T1574: Hijack Execution Flow](https://attack.mitre.org/techniques/T1574/)
+- [MITRE ATT&CK T1565: Data Manipulation](https://attack.mitre.org/techniques/T1565/) (primary — covers forging JSON-RPC payloads in transit)
+- [MITRE ATT&CK T1190: Exploit Public-Facing Application](https://attack.mitre.org/techniques/T1190/) (when MCP transport is network-exposed)
 - [JSON-RPC 2.0 Specification](https://www.jsonrpc.org/specification)
 - [Model Context Protocol Specification](https://spec.modelcontextprotocol.io/)
 - [OWASP API Security Top 10](https://owasp.org/www-project-api-security/)
@@ -531,3 +595,4 @@ class FakeToolInvocationTester:
 |---------|------------|-------------------------------------------------|--------------------|
 | 1.0     | 2025-09-14 | Initial documentation                           | Bo Redfearn        |
 | 1.1     | 2025-10-11 | Updated Description; added Attack Vector Workflow | Shekhar Chaudhary |
+| 1.2     | 2026-04-25 | Audit pass: add detection-rule.yml + inline Sigma, attach SAFE-M-11/M-12 references on detective controls, replace MITRE T1574 (poor fit) with T1565 + T1190, remove wrongly-imported Mermaid diagram describing Indirect Prompt Injection (different technique), TODO marker on title-vs-T1102-cross-reference identity question for original-author resolution | bishnu bista |
