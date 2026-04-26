@@ -1,0 +1,49 @@
+title: MCP Tool Enumeration Detection
+id: 7b3e4a9c-2d18-4f62-9a71-e83d5c6b2f40
+status: experimental
+description: Detects potential MCP tool enumeration through anomalous tools/list volume, cross-server enumeration by a single credential, and fingerprinting patterns against unknown-tool error responses
+author: SAFE-MCP Team
+date: 2026-04-24
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/tree/main/techniques/SAFE-T1602
+  - https://modelcontextprotocol.io/specification/2025-06-18/server/tools
+  - https://attack.mitre.org/techniques/T1526/
+  - https://attack.mitre.org/techniques/T1518/
+logsource:
+  product: mcp
+  service: jsonrpc_requests
+detection:
+  # Correlation selectors — require Sigma v2 correlation rules or equivalent
+  # stateful SIEM logic keyed on credential/session/source IP. Tool enumeration
+  # is an inherently legitimate behavior; detection relies on rate, breadth,
+  # and correlation rather than any single invocation.
+  selection_high_volume_list:
+    method: 'tools/list'
+    count_per_credential|gt: 50
+    timeframe: 5m
+  selection_cross_server_sweep:
+    method: 'tools/list'
+    distinct_server_ids_per_credential|gt: 5
+    timeframe: 10m
+  # Fingerprinting via invalid tools/call + -32602 error responses.
+  selection_unknown_tool_fingerprint:
+    method: 'tools/call'
+    error_code: -32602
+    count_distinct_tool_names_per_session|gt: 10
+    timeframe: 5m
+  # Sessions that list but never call — enumeration-only pattern.
+  selection_list_without_followup_call:
+    method: 'tools/list'
+    session_tools_call_count: 0
+    session_duration|gt: 60
+  condition: selection_high_volume_list or selection_cross_server_sweep or selection_unknown_tool_fingerprint or selection_list_without_followup_call
+falsepositives:
+  - Legitimate developer tools that periodically refresh tool manifests (MCP client SDKs on startup, IDE integrations)
+  - Automated monitoring of tool availability (SRE health checks, gateway deployment probes)
+  - Client implementations that preload the full manifest into an offline cache before first interactive call
+level: medium
+tags:
+  - attack.discovery
+  - attack.t1526
+  - attack.t1518
+  - safe.t1602
