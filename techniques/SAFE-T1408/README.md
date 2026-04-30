@@ -151,17 +151,17 @@ tags:
 ## Mitigation Strategies
 
 ### Preventive Controls
-1. **SAFE-M-101: Disable Implicit Flow**: Configure authorization server to reject `response_type=token`.  
-2. **SAFE-M-102: Enforce PKCE**: Require PKCE for all public clients.  
-3. **SAFE-M-103: Client Registration Hardening**: Allow only authorization code flow with PKCE.  
-4. **SAFE-M-104: HTTP Message Signatures**: Use RFC 9421 to sign requests, preventing parameter tampering and downgrade attempts.  
-5. **SAFE-M-105: Audience and Scope Restriction**: Bind tokens to specific resources and minimize privileges.  
-6. **SAFE-M-106: Secure Token Storage**: Ensure tokens are never stored in URLs, logs, or insecure browser storage.
+1. **Disable Implicit Flow** *(canonical mitigation pending)*: Configure authorization server to reject `response_type=token`.  
+2. **Enforce PKCE** *(canonical mitigation pending)*: Require PKCE for all public clients.  
+3. **Client Registration Hardening** *(canonical mitigation pending)*: Allow only authorization code flow with PKCE.  
+4. **HTTP Message Signatures** *(canonical mitigation pending)*: Use RFC 9421 to sign requests, preventing parameter tampering and downgrade attempts.  
+5. **Audience and Scope Restriction** *(canonical mitigation pending)*: Bind tokens to specific resources and minimize privileges.  
+6. **Secure Token Storage** *(canonical mitigation pending)*: Ensure tokens are never stored in URLs, logs, or insecure browser storage.
 
 ### Detective Controls
-1. **SAFE-M-201: Log Monitoring**: Detect requests with implicit flow parameters.  
-2. **SAFE-M-202: Token Exposure Alerts**: Alert when tokens appear in URL fragments.  
-3. **SAFE-M-203: Replay Detection**: Monitor for repeated use of the same token across multiple MCP servers.
+1. **Log Monitoring** *(canonical mitigation pending)*: Detect requests with implicit flow parameters.  
+2. **Token Exposure Alerts** *(canonical mitigation pending)*: Alert when tokens appear in URL fragments.  
+3. **Replay Detection** *(canonical mitigation pending)*: Monitor for repeated use of the same token across multiple MCP servers.
 
 ### Response Procedures
 1. **Immediate Actions**:  
