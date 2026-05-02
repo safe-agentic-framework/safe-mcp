@@ -1,0 +1,92 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://example.org/safe-mcp/techniques.schema.yaml"
+title: "SAFE-MCP Techniques"
+description: "Canonical schema for techniques. Validates data/techniques.yaml."
+type: array
+minItems: 1
+items:
+  type: object
+  additionalProperties: false
+  required: [id, name, tactic, description]
+  properties:
+    id:
+      type: string
+      description: "Unique identifier (e.g., SAFE-T0001)"
+      pattern: "^SAFE-T\\d{4}(?:\\.\\d{3})?$"
+    version:
+      type: string
+      description: "Semver for this technique entry"
+      pattern: "^\\d+\\.\\d+\\.\\d+$"
+      default: "0.1.0"
+    name:
+      type: string
+      minLength: 3
+      maxLength: 120
+    tactic:
+      type: string
+      description: "High-level category"
+      enum: [Reconnaissance, Resource_Development, Initial_Access, Execution, Persistence, Privilege_Escalation, Defense_Evasion, Credential_Access, Discovery, Lateral_Movement, Collection, Command_and_Control, Exfiltration, Impact]
+    description:
+      type: string
+      minLength: 20
+    tags:
+      type: array
+      items: { type: string }
+      uniqueItems: true
+    mitre_mappings:
+      type: array
+      description: "MITRE ATT&CK technique/sub-technique IDs"
+      items:
+        type: string
+        pattern: "^T\\d{4}(?:\\.\\d{3})?$"
+      uniqueItems: true
+    detections:
+      type: array
+      description: "Detection strategies or Sigma references"
+      items:
+        oneOf:
+          - type: string   # e.g., "Sigma: prompt-injection-keywords"
+          - type: object
+            additionalProperties: false
+            required: [type, ref]
+            properties:
+              type:
+                type: string
+                enum: [Sigma, YARA, KQL, SPL, Query, Heuristic]
+              ref:
+                type: string
+                description: "Path/URL/ID to the rule/query"
+              notes:
+                type: string
+    mitigations:
+      type: array
+      items: { type: string }
+      uniqueItems: true
+    references:
+      type: array
+      description: "External links or docs supporting the entry"
+      items:
+        type: string
+        format: uri
+      uniqueItems: true
+    provenance:
+      type: object
+      additionalProperties: false
+      properties:
+        created:
+          type: string
+          format: date
+        updated:
+          type: string
+          format: date
+        authors:
+          type: array
+          items: { type: string }
+          uniqueItems: true
+        source_of_truth:
+          type: string
+          enum: [Markdown, YAML, Both]
+    status:
+      type: string
+      enum: [draft, proposed, accepted, deprecated]
+      default: "draft"
