@@ -1,243 +1,76 @@
-# SAFE-T1804: API Data Harvest Detection Rule
-# 
-# This Sigma rule detects systematic API data harvesting through MCP tools
-# Based on systematic review evidence from 12 peer-reviewed studies (2020-2025)
-#
-# Attack characteristics:
-# - High-volume API calls (30,000+ queries in attacks)
-# - Systematic enumeration patterns
-# - Batch data extraction
-# - Benign-appearing queries that accumulate to data exfiltration
-#
-# References:
-# - Carlini et al., 2024: <$2,000 cost for production model extraction
-# - Wang et al., 2025: 96% attack success rate with 256 extraction rounds
-# - Jiang et al., 2024: >70% success on OpenAI GPTs, >80% on ByteDance Coze
-
-title: MCP API Data Harvest Detection
-id: 7c4a8f92-1b3d-4e56-9a8f-2c3d4e5f6a7b
+title: API Data Harvesting via MCP HTTP Tools
+id: 13A7065E-51D5-42AD-947D-EC746183C739
 status: experimental
-description: |
-  Detects potential API data harvesting through MCP tools based on systematic 
-  enumeration patterns, high-volume API calls, and suspicious query patterns.
-  Evidence from systematic review shows attacks achieve 70-96% success rates
-  using automated batch queries and benign-appearing systematic extraction.
-author: Saurabh Yergattikar, SAFE-MCP Team
-date: 2025-12-06
+description: Detects potential API data harvesting attack by identifying high-frequency, systematic HTTP requests through MCP tools
+author: SAFE-MCP Team
+date: 2025-11-16
 references:
-  - https://github.com/safe-mcp/techniques/SAFE-T1804
-  - https://arxiv.org/abs/2505.15420
-  - https://arxiv.org/abs/2411.14110
-  - https://arxiv.org/abs/2403.06634
-  - https://arxiv.org/abs/2309.10544
-
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1804
 logsource:
   product: mcp
-  service: api_tools
-  
+  service: tool_invocation
 detection:
-  # High-volume API calls indicating batch harvesting
-  selection_volume:
-    tool_name:
-      - 'http_request'
+  selection_high_frequency:
+    tool_name|contains:
+      - 'http_get'
+      - 'http_post'
+      - 'api_request'
+      - 'rest_call'
       - 'fetch'
-      - 'api_call'
-      - 'rest_api'
-      - 'graphql_query'
-    event_type: 'tool_invocation'
+    count: high
+    timeframe: 5m
     
-  # Aggregate condition: Count API calls per session/agent
-  timeframe: 10m
-  condition: selection_volume | count(by agent_id) > 50
-  
-  # Systematic enumeration patterns
-  selection_enumeration:
-    tool_name:
-      - 'http_request'
-      - 'fetch'
-      - 'api_call'
-    api_path|re: '.*/api/.*/\d+$'  # Sequential ID patterns
+  selection_enumeration_pattern:
+    tool_name|contains:
+      - 'http'
+      - 'api'
+      - 'rest'
+    tool_arguments.url|re: '/api/[^/]+/\d+'
+    pattern: 'sequential'
     
-  # Batch query indicators
-  selection_batch:
-    tool_name:
-      - 'http_request'
-      - 'api_call'
-    request_parameters|contains:
-      - 'limit=100'
-      - 'limit=1000'
+  selection_pagination_exploitation:
+    tool_name|contains:
+      - 'http'
+      - 'api'
+    tool_arguments.url|contains:
       - 'page='
       - 'offset='
-      - 'batch'
-      - 'all'
-      - 'export'
+      - 'cursor='
+    count: '>10'
+    timeframe: 1m
     
-  # GraphQL enumeration
-  selection_graphql:
-    tool_name:
-      - 'graphql_query'
-      - 'http_request'
-    request_body|contains:
-      - '__schema'
-      - '__type'
-      - 'introspection'
+  selection_cross_endpoint:
+    tool_name|contains:
+      - 'http'
+      - 'api'
+    distinct_endpoints: '>5'
+    related_pattern: true
+    timeframe: 10m
     
-  # Data export indicators in prompts
-  selection_prompt_indicators:
-    prompt_content|contains:
-      - 'all customer'
-      - 'all user'
-      - 'complete list'
-      - 'export all'
-      - 'dump all'
-      - 'iterate through'
-      - 'systematic'
-      - 'comprehensive audit'
-      
-  # Large response payloads
-  selection_large_response:
-    tool_name:
-      - 'http_request'
-      - 'fetch'
-      - 'api_call'
-    response_size: '>1000000'  # >1MB responses
+  selection_observability_apis:
+    tool_arguments.url|contains:
+      - '/api/v1/query'
+      - '/api/datasources'
+      - '/api/dashboards'
+      - '/api/metrics'
+      - '/api/logs'
+      - '/api/customers'
+      - '/api/users'
+    count: '>20'
+    timeframe: 5m
     
-  condition: selection_volume or selection_enumeration or selection_batch or 
-             selection_graphql or selection_prompt_indicators or selection_large_response
-
-falsepositives:
-  - Legitimate bulk data exports by authorized users
-  - System administration tasks requiring comprehensive data access
-  - Automated reporting systems with scheduled batch queries
-  - Development and testing activities with high API usage
-  - Data migration or backup operations
-
-level: high
-
-tags:
-  - attack.collection
-  - attack.t1213  # Data from Information Repositories
-  - attack.t1119  # Automated Collection
-  - attack.t1005  # Data from Local System
-  - safe.t1804
-
-# Additional detection logic for behavioral analysis
----
-
-title: MCP API Harvesting - Cumulative Data Volume Alert
-id: 8d5b9g03-2c4e-5f67-0b9g-3d4e5f6a7b8c
-status: experimental
-description: |
-  Detects excessive cumulative data extraction through API calls over time.
-  Based on evidence that successful attacks extract >91% of text chunks
-  (Wang et al., 2025) or 83,335 labeled examples (Birch et al., 2023).
-author: Saurabh Yergattikar, SAFE-MCP Team
-date: 2025-12-06
-
-logsource:
-  product: mcp
-  service: api_tools
-  
-detection:
-  selection:
-    tool_name:
-      - 'http_request'
-      - 'fetch'
-      - 'api_call'
-    event_type: 'tool_response'
-    
-  # Aggregate cumulative response size per agent/session
-  timeframe: 1h
-  condition: selection | sum(response_size by agent_id) > 100000000  # >100MB in 1 hour
+  condition: selection_high_frequency or (selection_enumeration_pattern and selection_cross_endpoint) or selection_pagination_exploitation or (selection_observability_apis and selection_high_frequency)
   
 falsepositives:
-  - Large legitimate data processing workflows
-  - Video or media content delivery
-  - Backup and disaster recovery operations
+  - Legitimate automated monitoring and data collection processes
+  - Authorized data export and backup operations
+  - Scheduled reporting and analytics jobs
+  - Normal API usage patterns during peak business hours
+  - Load testing and performance evaluation activities
   
 level: high
-
 tags:
   - attack.collection
-  - attack.t1213
-  - safe.t1804
-
----
-
-title: MCP API Harvesting - Sequential Pattern Detection
-id: 9e6c0h14-3d5f-6g78-1c0h-4e5f6a7b8c9d
-status: experimental
-description: |
-  Detects systematic sequential access patterns indicating enumeration attacks.
-  Evidence shows attackers use sequential IDs, systematic sampling, and 
-  active learning strategies to extract maximum data with minimum queries.
-author: Saurabh Yergattikar, SAFE-MCP Team
-date: 2025-12-06
-
-logsource:
-  product: mcp
-  service: api_tools
-  
-detection:
-  selection_sequential:
-    tool_name:
-      - 'http_request'
-      - 'api_call'
-    api_path|re: '.*/\d+$'
-    
-  # Check for sequential ID patterns
-  timeframe: 5m
-  condition: selection_sequential | sequence(by agent_id, field=api_path) > 10
-  
-falsepositives:
-  - Legitimate pagination through search results
-  - Automated testing suites
-  - Data validation workflows
-  
-level: medium
-
-tags:
-  - attack.collection
-  - attack.t1119
-  - safe.t1804
-
----
-
-title: MCP API Harvesting - Multi-Round Extraction Pattern
-id: 0f7d1i25-4e6g-7h89-2d1i-5f6a7b8c9d0e
-status: experimental
-description: |
-  Detects self-improving extraction mechanisms that refine queries based on
-  previous responses. Based on Jiang et al., 2024 attack achieving >70-80%
-  success through forward/backward reasoning and continuous refinement.
-author: Saurabh Yergattikar, SAFE-MCP Team
-date: 2025-12-06
-
-logsource:
-  product: mcp
-  service: api_tools
-  
-detection:
-  selection_iterative:
-    tool_name:
-      - 'http_request'
-      - 'api_call'
-    event_type: 'tool_invocation'
-    
-  # Look for similar API calls with parameter variations
-  timeframe: 15m
-  condition: selection_iterative | count(by agent_id, api_endpoint) > 20 and
-             selection_iterative | unique(request_parameters) > 10
-  
-falsepositives:
-  - A/B testing frameworks
-  - Automated optimization systems
-  - Machine learning hyperparameter tuning
-  
-level: high
-
-tags:
-  - attack.collection
-  - attack.t1213
+  - attack.t1530
   - safe.t1804
 
