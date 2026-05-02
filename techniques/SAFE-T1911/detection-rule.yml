@@ -1,0 +1,278 @@
+title: MCP Parameter Exfiltration Detection
+id: e004e53d-8c44-4b5c-851c-550c20020c21
+status: experimental
+description: |
+  Detects potential data exfiltration through unused or optional MCP tool parameters.
+  This rule monitors for signs that sensitive data is being smuggled in tool call parameters.
+  IMPORTANT: Parameter exfiltration can use novel encoding and obfuscation techniques.
+  Deploy strict schema validation and ML-based anomaly detection for comprehensive protection.
+author: SAFE-MCP Contributors
+date: 2025-12-16
+modified: 2025-12-16
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1911
+  - https://attack.mitre.org/techniques/T1041/
+  - https://attack.mitre.org/techniques/T1567/
+  - https://attack.mitre.org/techniques/T1029/
+logsource:
+  product: mcp
+  service: tool_invocation
+detection:
+  # Undefined parameters in tool calls
+  selection_undefined_params:
+    event_type: 'tool_call'
+    schema_validation: 'failed'
+    has_extra_properties: true
+
+  # Large parameter payloads indicating data exfiltration
+  selection_large_payload:
+    total_params_size_bytes|gt: 10240  # 10KB threshold
+    event_type: 'tool_call'
+
+  # Sensitive credential patterns in parameters
+  selection_credential_patterns:
+    parameter_value|re:
+      - '(?i)password\s*[:=]\s*\S+'
+      - '(?i)api[_-]?key\s*[:=]\s*\S+'
+      - '(?i)secret\s*[:=]\s*\S+'
+      - '(?i)token\s*[:=]\s*\S+'
+      - 'AKIA[0-9A-Z]{16}'  # AWS Access Key ID
+      - '(?i)bearer\s+[a-zA-Z0-9._-]+'
+      - 'sk-[a-zA-Z0-9]{32,}'  # OpenAI API key pattern
+      - '-----BEGIN (RSA |OPENSSH |EC )?PRIVATE KEY-----'
+
+  # High entropy strings (encoded data)
+  selection_high_entropy:
+    parameter_entropy|gt: 5.5
+    parameter_length|gt: 50
+
+  # Suspicious parameter names commonly used for hiding data
+  selection_suspicious_param_names:
+    parameter_name|contains:
+      - 'note'
+      - 'metadata'
+      - 'debug'
+      - 'internal'
+      - 'extra'
+      - 'custom'
+      - 'context'
+      - 'trace'
+      - 'comment'
+      - 'memo'
+      - '_data'
+      - 'raw'
+
+  # Base64 encoded data detection
+  selection_base64:
+    parameter_value|re: '^[A-Za-z0-9+/]{40,}={0,2}$'
+
+  filter_known_legitimate:
+    tool_name|in:
+      - 'logging_tool'
+      - 'debug_helper'
+      - 'telemetry_reporter'
+
+  condition: >
+    (selection_undefined_params or selection_large_payload or selection_credential_patterns) and not filter_known_legitimate
+    or (selection_suspicious_param_names and (selection_high_entropy or selection_base64))
+
+falsepositives:
+  - Legitimate debugging and telemetry data
+  - Rich text content in messaging/documentation tools
+  - Application-specific metadata fields
+  - Backward compatibility parameters
+
+level: high
+
+tags:
+  - attack.exfiltration
+  - attack.ta0010
+  - attack.t1041
+  - attack.t1567
+  - attack.t1029
+  - attack.t1132
+  - safe.t1911
+  - mcp.exfiltration
+
+fields:
+  - session_id
+  - user_id
+  - tool_name
+  - parameter_names
+  - parameter_sizes
+  - total_payload_size
+  - parameter_entropy
+  - timestamp
+
+---
+# Correlation rule for collection-to-exfiltration pattern
+title: MCP Data Collection Followed by Parameter Exfiltration
+id: f1a2b3c4-d5e6-7f89-0abc-def123456789
+status: experimental
+description: |
+  Detects pattern where sensitive file access is followed by tool calls with
+  large or suspicious parameters, indicating a collect-then-exfiltrate attack.
+author: SAFE-MCP Contributors
+date: 2025-12-16
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1911
+  - https://attack.mitre.org/techniques/T1119/
+logsource:
+  product: mcp
+  service: tool_invocation
+detection:
+  # Stage 1: Data collection
+  selection_collection:
+    tool_name|contains:
+      - 'read_file'
+      - 'file_read'
+      - 'get_env'
+      - 'database_query'
+      - 'fetch_secret'
+    path|contains:
+      - '.env'
+      - 'credentials'
+      - '.aws'
+      - '.ssh'
+      - 'config'
+      - 'secret'
+
+  # Stage 2: Potential exfiltration (within 5 minutes)
+  selection_exfiltration:
+    tool_name|contains:
+      - 'send_'
+      - 'post_'
+      - 'create_'
+      - 'upload_'
+      - 'notify'
+      - 'webhook'
+      - 'email'
+      - 'message'
+    total_params_size_bytes|gt: 1024
+
+  timeframe: 5m
+  condition: selection_collection | followed_by(selection_exfiltration)
+
+falsepositives:
+  - Legitimate configuration management workflows
+  - Authorized secret rotation processes
+  - Development and testing activities
+
+level: critical
+
+tags:
+  - attack.exfiltration
+  - attack.collection
+  - attack.t1119
+  - attack.t1041
+  - safe.t1911
+  - mcp.multi_stage
+
+---
+# Chunked exfiltration detection
+title: MCP Chunked Parameter Exfiltration
+id: a2b3c4d5-e6f7-8901-bcde-f12345678901
+status: experimental
+description: |
+  Detects repeated tool calls with consistent parameter structures that may
+  indicate chunked data exfiltration to avoid size-based detection.
+author: SAFE-MCP Contributors
+date: 2025-12-16
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1911
+  - https://attack.mitre.org/techniques/T1030/
+logsource:
+  product: mcp
+  service: tool_invocation
+detection:
+  # Repeated calls with similar structure
+  selection_repeated_pattern:
+    event_type: 'tool_call'
+
+  # Parameters suggesting chunking
+  selection_chunking_indicators:
+    parameter_name|contains:
+      - 'chunk'
+      - 'part'
+      - 'segment'
+      - 'index'
+      - 'sequence'
+      - 'offset'
+
+  # High-entropy data in chunks
+  selection_chunk_data:
+    parameter_entropy|gt: 5.0
+    parameter_length|range: '100-5000'  # Consistent chunk sizes
+
+  # Aggregate: 5+ similar calls in 10 minutes
+  timeframe: 10m
+  condition: selection_repeated_pattern and selection_chunking_indicators and selection_chunk_data | count() > 5
+
+falsepositives:
+  - Legitimate file upload tools with chunking
+  - Streaming data processing
+  - Pagination in data retrieval tools
+
+level: high
+
+tags:
+  - attack.exfiltration
+  - attack.t1030
+  - safe.t1911
+  - mcp.chunking
+
+---
+# Entropy-based detection for encoded exfiltration
+title: High Entropy Parameter Content Detection
+id: b3c4d5e6-f7a8-9012-cdef-123456789012
+status: experimental
+description: |
+  Detects parameters with unusually high entropy values that may indicate
+  encoded or encrypted exfiltration payloads.
+author: SAFE-MCP Contributors
+date: 2025-12-16
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1911
+  - https://attack.mitre.org/techniques/T1132/
+logsource:
+  product: mcp
+  service: tool_invocation
+detection:
+  # High entropy in string parameters
+  selection_high_entropy_string:
+    parameter_type: 'string'
+    parameter_entropy|gt: 6.0  # Very high entropy
+    parameter_length|gt: 100
+
+  # Base64 pattern with high entropy
+  selection_encoded_base64:
+    parameter_value|re: '^[A-Za-z0-9+/]+={0,2}$'
+    parameter_length|gt: 50
+    parameter_entropy|gt: 5.5
+
+  # Hex-encoded data
+  selection_encoded_hex:
+    parameter_value|re: '^[0-9a-fA-F]+$'
+    parameter_length|gt: 40
+    parameter_length|divisible: 2  # Valid hex has even length
+
+  filter_expected_encoded:
+    tool_name|in:
+      - 'image_processor'
+      - 'file_upload'
+      - 'binary_handler'
+
+  condition: (selection_high_entropy_string or selection_encoded_base64 or selection_encoded_hex) and not filter_expected_encoded
+
+falsepositives:
+  - Legitimate binary data handling
+  - Cryptographic operations
+  - Image/media processing tools
+
+level: medium
+
+tags:
+  - attack.exfiltration
+  - attack.t1132
+  - safe.t1911
+  - mcp.entropy

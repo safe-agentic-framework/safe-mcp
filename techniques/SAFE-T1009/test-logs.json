@@ -1,0 +1,648 @@
+{
+    "test_cases": [
+        {
+            "name": "Legitimate Google OAuth Flow",
+            "category": "benign",
+            "description": "Normal OAuth authorization to legitimate Google Authorization Server",
+            "event": {
+                "action": "oauth.authorization.initiated",
+                "timestamp": "2025-11-23T10:00:00Z",
+                "user": {
+                    "id": "user123",
+                    "email": "user@example.com"
+                },
+                "oauth": {
+                    "provider_name": "google",
+                    "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+                    "token_endpoint": "https://oauth2.googleapis.com/token",
+                    "iss": "https://accounts.google.com",
+                    "expected_issuer": "https://accounts.google.com",
+                    "client_id": "123456789.apps.googleusercontent.com",
+                    "redirect_uri": "https://mcp-client.example.com/callback",
+                    "scope": [
+                        "https://www.googleapis.com/auth/drive.readonly"
+                    ],
+                    "state": "random_state_value_abc123",
+                    "as_domain_first_seen": false
+                },
+                "tls": {
+                    "server": {
+                        "domain": "accounts.google.com"
+                    },
+                    "certificate": {
+                        "validation_type": "EV",
+                        "not_before": "2024-10-01T00:00:00Z",
+                        "ca": "Google Trust Services"
+                    }
+                }
+            },
+            "expected_alerts": []
+        },
+        {
+            "name": "Typosquatting Attack - Hyphenated Google Domain",
+            "category": "malicious",
+            "description": "OAuth flow redirected to typosquatted accounts-google.com domain",
+            "event": {
+                "action": "oauth.authorization.initiated",
+                "timestamp": "2025-11-23T10:05:00Z",
+                "user": {
+                    "id": "user456",
+                    "email": "victim@example.com"
+                },
+                "oauth": {
+                    "provider_name": "google",
+                    "authorization_endpoint": "https://accounts-google.com/o/oauth2/v2/auth",
+                    "token_endpoint": "https://accounts-google.com/token",
+                    "client_id": "attacker-client-id",
+                    "redirect_uri": "https://attacker-controlled.com/steal-tokens",
+                    "scope": [
+                        "https://www.googleapis.com/auth/drive",
+                        "https://www.googleapis.com/auth/gmail.readonly"
+                    ],
+                    "state": "malicious_state_xyz789",
+                    "as_domain_first_seen": true
+                },
+                "tls": {
+                    "server": {
+                        "domain": "accounts-google.com"
+                    },
+                    "certificate": {
+                        "validation_type": "DV",
+                        "not_before": "2025-11-20T00:00:00Z",
+                        "not_after": "2026-11-20T00:00:00Z",
+                        "ca": "Let's Encrypt",
+                        "subject": "CN=accounts-google.com"
+                    }
+                }
+            },
+            "expected_alerts": [
+                "a7f8e3d1-9c2b-4a6e-8d5f-1b7c9e4a3f2d",
+                "f3d4e9a7-5c8b-0f2d-4e1a-7b3c6f9e8d0a"
+            ]
+        },
+        {
+            "name": "IDN Homograph Attack - Cyrillic Characters",
+            "category": "malicious",
+            "description": "OAuth flow to domain using Cyrillic 'а' instead of Latin 'a' in 'accounts'",
+            "event": {
+                "action": "oauth.redirect.followed",
+                "timestamp": "2025-11-23T10:10:00Z",
+                "user": {
+                    "id": "user789",
+                    "email": "target@example.com"
+                },
+                "oauth": {
+                    "provider_name": "google",
+                    "authorization_endpoint": "https://аccounts.google.com/o/oauth2/v2/auth",
+                    "token_endpoint": "https://аccounts.google.com/token",
+                    "client_id": "phishing-client",
+                    "redirect_uri": "https://evil.example.com/callback",
+                    "scope": [
+                        "https://www.googleapis.com/auth/userinfo.email"
+                    ],
+                    "state": "phishing_state",
+                    "as_domain_first_seen": true
+                }
+            },
+            "expected_alerts": [
+                "d0a1b6e4-2f5c-7d9a-1b8c-4e0f2a7d6c5b",
+                "f3d4e9a7-5c8b-0f2d-4e1a-7b3c6f9e8d0a"
+            ]
+        },
+        {
+            "name": "Missing Issuer Parameter (RFC 9207 Violation)",
+            "category": "malicious",
+            "description": "OAuth authorization response missing mandatory iss parameter",
+            "event": {
+                "action": "oauth.authorization.response.received",
+                "timestamp": "2025-11-23T10:15:00Z",
+                "user": {
+                    "id": "user101",
+                    "email": "user@example.com"
+                },
+                "oauth": {
+                    "provider_name": "github",
+                    "authorization_endpoint": "https://github.com/login/oauth/authorize",
+                    "code": "authorization_code_abc123",
+                    "state": "state_value_def456"
+                }
+            },
+            "expected_alerts": [
+                "b8e9f4c2-0d3a-5b7e-9f6a-2c8d0e5b4a3f"
+            ]
+        },
+        {
+            "name": "Issuer Identifier Mismatch",
+            "category": "malicious",
+            "description": "Authorization response issuer does not match expected issuer",
+            "event": {
+                "action": "oauth.authorization.response.received",
+                "timestamp": "2025-11-23T10:20:00Z",
+                "user": {
+                    "id": "user202",
+                    "email": "user@example.com"
+                },
+                "oauth": {
+                    "provider_name": "microsoft",
+                    "authorization_endpoint": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+                    "iss": "https://login-microsoft.com",
+                    "expected_issuer": "https://login.microsoftonline.com",
+                    "issuer_validation": "failed",
+                    "code": "auth_code_xyz789",
+                    "state": "state_ghi012"
+                }
+            },
+            "expected_alerts": [
+                "c9f0a5d3-1e4b-6c8f-0a7b-3d9e1f6c5b4a"
+            ]
+        },
+        {
+            "name": "TLD Substitution Attack - .co instead of .com",
+            "category": "malicious",
+            "description": "OAuth flow to github.co instead of github.com",
+            "event": {
+                "action": "oauth.authorization.initiated",
+                "timestamp": "2025-11-23T10:25:00Z",
+                "user": {
+                    "id": "user303",
+                    "email": "developer@example.com"
+                },
+                "oauth": {
+                    "provider_name": "github",
+                    "authorization_endpoint": "https://github.co/login/oauth/authorize",
+                    "token_endpoint": "https://github.co/login/oauth/access_token",
+                    "client_id": "attacker_client_github",
+                    "redirect_uri": "https://steal-tokens.evil.com/gh-callback",
+                    "scope": [
+                        "repo",
+                        "read:org"
+                    ],
+                    "state": "tld_attack_state",
+                    "as_domain_first_seen": true
+                }
+            },
+            "expected_alerts": [
+                "e2c3d8f6-4b7a-9e1c-3d0e-6f2b4a9d8c7b",
+                "f3d4e9a7-5c8b-0f2d-4e1a-7b3c6f9e8d0a"
+            ]
+        },
+        {
+            "name": "Punycode IDN Attack",
+            "category": "malicious",
+            "description": "OAuth flow to Punycode-encoded (xn--) domain",
+            "event": {
+                "action": "oauth.authorization.initiated",
+                "timestamp": "2025-11-23T10:30:00Z",
+                "user": {
+                    "id": "user404",
+                    "email": "user@example.com"
+                },
+                "oauth": {
+                    "provider_name": "google",
+                    "authorization_endpoint": "https://xn--ccount-9ua.google.com/oauth2/auth",
+                    "token_endpoint": "https://xn--ccount-9ua.google.com/token",
+                    "client_id": "punycode_attacker",
+                    "redirect_uri": "https://attacker.com/cb",
+                    "scope": [
+                        "email",
+                        "profile"
+                    ],
+                    "state": "punycode_state",
+                    "as_domain_first_seen": true
+                }
+            },
+            "expected_alerts": [
+                "d0a1b6e4-2f5c-7d9a-1b8c-4e0f2a7d6c5b",
+                "f3d4e9a7-5c8b-0f2d-4e1a-7b3c6f9e8d0a"
+            ]
+        },
+        {
+            "name": "Recently Issued Certificate for Brand Domain",
+            "category": "suspicious",
+            "description": "TLS certificate for google-branded domain issued within last 7 days",
+            "event": {
+                "action": "tls.certificate.validated",
+                "timestamp": "2025-11-23T10:35:00Z",
+                "tls": {
+                    "server": {
+                        "domain": "accounts-google.net",
+                        "ip": "203.0.113.42"
+                    },
+                    "certificate": {
+                        "validation_type": "DV",
+                        "not_before": "2025-11-20T00:00:00Z",
+                        "not_after": "2026-11-20T00:00:00Z",
+                        "ca": "Let's Encrypt",
+                        "subject": "CN=accounts-google.net"
+                    }
+                }
+            },
+            "expected_alerts": [
+                "e1b2c7f5-3a6d-8e0b-2c9d-5f1a3b8e7d6c"
+            ]
+        },
+        {
+            "name": "Legitimate Microsoft OAuth with Issuer Validation",
+            "category": "benign",
+            "description": "Proper OAuth flow to Microsoft with RFC 9207 issuer validation",
+            "event": {
+                "action": "oauth.authorization.response.received",
+                "timestamp": "2025-11-23T10:40:00Z",
+                "user": {
+                    "id": "user505",
+                    "email": "enterprise@example.com"
+                },
+                "oauth": {
+                    "provider_name": "microsoft",
+                    "authorization_endpoint": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+                    "iss": "https://login.microsoftonline.com",
+                    "expected_issuer": "https://login.microsoftonline.com",
+                    "issuer_validation": "passed",
+                    "code": "valid_auth_code_mno345",
+                    "state": "valid_state_pqr678"
+                }
+            },
+            "expected_alerts": []
+        },
+        {
+            "name": "Multiple AS Configurations for Same Provider",
+            "category": "suspicious",
+            "description": "Detection of second Google OAuth configuration being added",
+            "event": {
+                "action": "oauth.provider.configured",
+                "timestamp": "2025-11-23T10:45:00Z",
+                "user": {
+                    "id": "admin_user",
+                    "email": "admin@example.com"
+                },
+                "oauth": {
+                    "provider_name": "google",
+                    "authorization_endpoint": "https://accounts-google.com/oauth2/auth",
+                    "token_endpoint": "https://accounts-google.com/token",
+                    "client_id": "suspicious_client_id",
+                    "configuration_count": 2
+                }
+            },
+            "expected_alerts": [
+                "g4e5f0b8-6d9c-1a3e-5f2b-8c4d7a0f9e1b"
+            ]
+        },
+        {
+            "name": "Unauthorized OAuth Configuration Change",
+            "category": "malicious",
+            "description": "Non-administrator modifying OAuth AS endpoints",
+            "event": {
+                "action": "oauth.configuration.modified",
+                "timestamp": "2025-11-23T10:50:00Z",
+                "user": {
+                    "id": "user606",
+                    "email": "regular_user@example.com"
+                },
+                "oauth": {
+                    "provider_name": "github",
+                    "field_changed": "authorization_endpoint",
+                    "old_value": "https://github.com/login/oauth/authorize",
+                    "new_value": "https://guthub.com/login/oauth/authorize",
+                    "modified_by": "regular_user"
+                }
+            },
+            "expected_alerts": [
+                "h5f6a1c9-7e0d-2b4f-6a3c-9d5e8b1a0f2c"
+            ]
+        },
+        {
+            "name": "Legitimate GitHub OAuth Flow",
+            "category": "benign",
+            "description": "Normal OAuth authorization to legitimate GitHub",
+            "event": {
+                "action": "oauth.authorization.initiated",
+                "timestamp": "2025-11-23T10:55:00Z",
+                "user": {
+                    "id": "user707",
+                    "email": "developer@example.com"
+                },
+                "oauth": {
+                    "provider_name": "github",
+                    "authorization_endpoint": "https://github.com/login/oauth/authorize",
+                    "token_endpoint": "https://github.com/login/oauth/access_token",
+                    "iss": "https://github.com",
+                    "expected_issuer": "https://github.com",
+                    "client_id": "Iv1.abc123def456",
+                    "redirect_uri": "https://mcp-client.example.com/github/callback",
+                    "scope": [
+                        "repo",
+                        "user:email"
+                    ],
+                    "state": "legitimate_state_value",
+                    "as_domain_first_seen": false
+                },
+                "tls": {
+                    "server": {
+                        "domain": "github.com"
+                    },
+                    "certificate": {
+                        "validation_type": "EV",
+                        "not_before": "2024-08-15T00:00:00Z",
+                        "ca": "DigiCert"
+                    }
+                }
+            },
+            "expected_alerts": []
+        },
+        {
+            "name": "AWS OAuth Flow - Legitimate",
+            "category": "benign",
+            "description": "Normal OAuth to AWS Cognito Authorization Server",
+            "event": {
+                "action": "oauth.authorization.initiated",
+                "timestamp": "2025-11-23T11:00:00Z",
+                "user": {
+                    "id": "user808",
+                    "email": "clouduser@example.com"
+                },
+                "oauth": {
+                    "provider_name": "aws",
+                    "authorization_endpoint": "https://signin.aws.amazon.com/oauth",
+                    "token_endpoint": "https://signin.aws.amazon.com/oauth/token",
+                    "iss": "https://signin.aws.amazon.com",
+                    "expected_issuer": "https://signin.aws.amazon.com",
+                    "client_id": "aws_client_abcd1234",
+                    "redirect_uri": "https://mcp-app.example.com/aws/callback",
+                    "scope": [
+                        "openid",
+                        "aws.cognito.signin.user.admin"
+                    ],
+                    "state": "aws_state_value",
+                    "as_domain_first_seen": false
+                }
+            },
+            "expected_alerts": []
+        },
+        {
+            "name": "Mixed Script Attack - Latin and Greek",
+            "category": "malicious",
+            "description": "OAuth domain using Greek omicron in 'microsoft'",
+            "event": {
+                "action": "oauth.authorization.initiated",
+                "timestamp": "2025-11-23T11:05:00Z",
+                "user": {
+                    "id": "user909",
+                    "email": "employee@example.com"
+                },
+                "oauth": {
+                    "provider_name": "microsoft",
+                    "authorization_endpoint": "https://login.micrοsoft.com/oauth2/authorize",
+                    "token_endpoint": "https://login.micrοsoft.com/oauth2/token",
+                    "client_id": "homograph_attacker",
+                    "redirect_uri": "https://phishing-site.com/oauth/cb",
+                    "scope": [
+                        "Mail.Read",
+                        "Files.ReadWrite.All"
+                    ],
+                    "state": "greek_omicron_attack",
+                    "as_domain_first_seen": true
+                }
+            },
+            "expected_alerts": [
+                "d0a1b6e4-2f5c-7d9a-1b8c-4e0f2a7d6c5b",
+                "f3d4e9a7-5c8b-0f2d-4e1a-7b3c6f9e8d0a"
+            ]
+        },
+        {
+            "name": "Legitimate Regional Google Domain",
+            "category": "benign",
+            "description": "OAuth to legitimate Google UK domain (should not trigger TLD alert)",
+            "event": {
+                "action": "oauth.authorization.initiated",
+                "timestamp": "2025-11-23T11:10:00Z",
+                "user": {
+                    "id": "uk_user",
+                    "email": "user@uk.example.com"
+                },
+                "oauth": {
+                    "provider_name": "google",
+                    "authorization_endpoint": "https://accounts.google.co.uk/o/oauth2/v2/auth",
+                    "token_endpoint": "https://oauth2.googleapis.com/token",
+                    "iss": "https://accounts.google.com",
+                    "expected_issuer": "https://accounts.google.com",
+                    "client_id": "123456789.apps.googleusercontent.com",
+                    "redirect_uri": "https://uk-app.example.com/callback",
+                    "scope": [
+                        "email",
+                        "profile"
+                    ],
+                    "state": "uk_state_value",
+                    "as_domain_first_seen": false
+                }
+            },
+            "expected_alerts": []
+        },
+        {
+            "name": "Microsoft OAuth Typosquatting - Misspelled Domain",
+            "category": "malicious",
+            "description": "OAuth flow to misspelled Microsoft domain (microsft.com)",
+            "event": {
+                "action": "oauth.authorization.initiated",
+                "timestamp": "2025-11-23T11:15:00Z",
+                "user": {
+                    "id": "user1001",
+                    "email": "employee@corp.com"
+                },
+                "oauth": {
+                    "provider_name": "microsoft",
+                    "authorization_endpoint": "https://login.microsft.com/oauth2/authorize",
+                    "token_endpoint": "https://login.microsft.com/oauth2/token",
+                    "client_id": "typosquat_client",
+                    "redirect_uri": "https://phishing.example.com/callback",
+                    "scope": [
+                        "openid",
+                        "profile",
+                        "email"
+                    ],
+                    "state": "typosquat_state",
+                    "as_domain_first_seen": true
+                }
+            },
+            "expected_alerts": [
+                "a7f8e3d1-9c2b-4a6e-8d5f-1b7c9e4a3f2d",
+                "f3d4e9a7-5c8b-0f2d-4e1a-7b3c6f9e8d0a"
+            ]
+        },
+        {
+            "name": "Apple OAuth Typosquatting - Character Omission",
+            "category": "malicious",
+            "description": "OAuth flow to aple.com (missing 'p' in apple)",
+            "event": {
+                "action": "oauth.authorization.initiated",
+                "timestamp": "2025-11-23T11:25:00Z",
+                "user": {
+                    "id": "user1003",
+                    "email": "user@mobile.com"
+                },
+                "oauth": {
+                    "provider_name": "apple",
+                    "authorization_endpoint": "https://appleid.aple.com/auth/authorize",
+                    "token_endpoint": "https://appleid.aple.com/auth/token",
+                    "client_id": "fake_apple_client",
+                    "redirect_uri": "https://steal-apple-tokens.com/callback",
+                    "scope": [
+                        "name",
+                        "email"
+                    ],
+                    "state": "apple_typosquat",
+                    "as_domain_first_seen": true
+                }
+            },
+            "expected_alerts": [
+                "a7f8e3d1-9c2b-4a6e-8d5f-1b7c9e4a3f2d",
+                "f3d4e9a7-5c8b-0f2d-4e1a-7b3c6f9e8d0a"
+            ]
+        },
+        {
+            "name": "AWS OAuth Hyphenated Attack",
+            "category": "malicious",
+            "description": "OAuth flow to signin-aws.amazon.com (hyphenated)",
+            "event": {
+                "action": "oauth.authorization.initiated",
+                "timestamp": "2025-11-23T11:30:00Z",
+                "user": {
+                    "id": "user1004",
+                    "email": "admin@cloud.com"
+                },
+                "oauth": {
+                    "provider_name": "aws",
+                    "authorization_endpoint": "https://signin-aws.amazon.com/oauth",
+                    "token_endpoint": "https://signin-aws.amazon.com/oauth/token",
+                    "client_id": "fake_aws_client",
+                    "redirect_uri": "https://aws-phishing.com/callback",
+                    "scope": [
+                        "aws.cognito.signin.user.admin"
+                    ],
+                    "state": "aws_hyphen_attack",
+                    "as_domain_first_seen": true
+                }
+            },
+            "expected_alerts": [
+                "a7f8e3d1-9c2b-4a6e-8d5f-1b7c9e4a3f2d",
+                "f3d4e9a7-5c8b-0f2d-4e1a-7b3c6f9e8d0a"
+            ]
+        },
+        {
+            "name": "Legitimate Azure AD OAuth Flow",
+            "category": "benign",
+            "description": "Normal OAuth to Azure AD (microsoftonline.com)",
+            "event": {
+                "action": "oauth.authorization.initiated",
+                "timestamp": "2025-11-23T11:35:00Z",
+                "user": {
+                    "id": "user1005",
+                    "email": "employee@enterprise.com"
+                },
+                "oauth": {
+                    "provider_name": "microsoft",
+                    "authorization_endpoint": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+                    "token_endpoint": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+                    "iss": "https://login.microsoftonline.com",
+                    "expected_issuer": "https://login.microsoftonline.com",
+                    "client_id": "12345678-1234-1234-1234-123456789012",
+                    "redirect_uri": "https://enterprise-app.com/callback",
+                    "scope": [
+                        "openid",
+                        "profile",
+                        "email"
+                    ],
+                    "state": "azure_legit_state",
+                    "as_domain_first_seen": false
+                }
+            },
+            "expected_alerts": []
+        },
+        {
+            "name": "Complex IDN Attack - Mixed Cyrillic and Latin",
+            "category": "malicious",
+            "description": "OAuth flow using mixed Cyrillic characters in microsoft",
+            "event": {
+                "action": "oauth.authorization.initiated",
+                "timestamp": "2025-11-23T11:40:00Z",
+                "user": {
+                    "id": "user1006",
+                    "email": "victim@company.com"
+                },
+                "oauth": {
+                    "provider_name": "microsoft",
+                    "authorization_endpoint": "https://login.miсrоsоft.com/oauth2/authorize",
+                    "token_endpoint": "https://login.miсrоsоft.com/oauth2/token",
+                    "client_id": "cyrillic_attacker",
+                    "redirect_uri": "https://cyrillic-phish.com/callback",
+                    "scope": [
+                        "Mail.Read",
+                        "Files.ReadWrite"
+                    ],
+                    "state": "cyrillic_mixed_attack",
+                    "as_domain_first_seen": true
+                }
+            },
+            "expected_alerts": [
+                "d0a1b6e4-2f5c-7d9a-1b8c-4e0f2a7d6c5b",
+                "f3d4e9a7-5c8b-0f2d-4e1a-7b3c6f9e8d0a"
+            ]
+        },
+        {
+            "name": "OAuth Response with Valid Issuer",
+            "category": "benign",
+            "description": "OAuth authorization response with proper RFC 9207 issuer",
+            "event": {
+                "action": "oauth.authorization.response.received",
+                "timestamp": "2025-11-23T11:45:00Z",
+                "user": {
+                    "id": "user1007",
+                    "email": "user@example.com"
+                },
+                "oauth": {
+                    "provider_name": "google",
+                    "iss": "https://accounts.google.com",
+                    "expected_issuer": "https://accounts.google.com",
+                    "issuer_validation": "passed",
+                    "code": "valid_auth_code_123",
+                    "state": "valid_state_456"
+                }
+            },
+            "expected_alerts": []
+        },
+        {
+            "name": "Certificate Validation - Suspicious Recent Cert",
+            "category": "suspicious",
+            "description": "TLS certificate for brand domain issued very recently",
+            "event": {
+                "action": "tls.certificate.validated",
+                "timestamp": "2025-11-23T11:50:00Z",
+                "tls": {
+                    "server": {
+                        "domain": "accounts-googIe.com",
+                        "ip": "198.51.100.42"
+                    },
+                    "certificate": {
+                        "validation_type": "DV",
+                        "not_before": "2025-11-22T00:00:00Z",
+                        "not_after": "2026-11-22T00:00:00Z",
+                        "ca": "Let's Encrypt",
+                        "subject": "CN=accounts-googIe.com"
+                    }
+                }
+            },
+            "expected_alerts": [
+                "e1b2c7f5-3a6d-8e0b-2c9d-5f1a3b8e7d6c"
+            ]
+        }
+    ],
+    "metadata": {
+        "version": "1.1",
+        "created": "2025-11-23",
+        "updated": "2025-11-23",
+        "description": "Enhanced test logs for SAFE-T1009 Authorization Server Mix-up detection rules",
+        "total_test_cases": 23,
+        "benign_cases": 7,
+        "malicious_cases": 14,
+        "suspicious_cases": 2
+    }
+}

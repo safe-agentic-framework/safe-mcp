@@ -1,0 +1,43 @@
+[
+  {
+    "timestamp": "2025-11-26T10:00:00Z",
+    "product": "mcp",
+    "service": "tool_execution",
+    "tool_name": "list_directory",
+    "parameters": {
+      "path": "/etc"
+    },
+    "author": "Vikranth Kumar Shivaa"
+  },
+  {
+    "timestamp": "2025-11-26T10:01:00Z",
+    "product": "mcp",
+    "service": "tool_execution",
+    "tool_name": "ls",
+    "parameters": {
+      "path": "/home/user/projects"
+    },
+    "author": "Vikranth Kumar Shivaa"
+  },
+  {
+    "timestamp": "2025-11-26T10:02:00Z",
+    "product": "mcp",
+    "service": "tool_execution",
+    "tool_name": "filesystem_list_directory",
+    "parameters": {
+      "path": "/root/.ssh"
+    },
+    "author": "Vikranth Kumar Shivaa"
+  },
+  {
+    "timestamp": "2025-11-26T10:03:00Z",
+    "product": "mcp",
+    "service": "tool_execution",
+    "tool_name": "dir",
+    "parameters": {
+      "path": "C:\\Windows\\System32"
+    },
+    "author": "Vikranth Kumar Shivaa"
+  }
+]
+

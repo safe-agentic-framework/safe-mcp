@@ -1,0 +1,29 @@
+[
+  {
+    "event.action": "token.issued",
+    "token.scope": "admin read:all write:all",
+    "token.cnf.jkt": null,
+    "iss": "https://rogue-as.attacker.example",
+    "aud": "https://mcp.api.service",
+    "kid": "rogue-key-123"
+  },
+  {
+    "event.action": "token.validated",
+    "token.cnf.jkt": "",
+    "config.pop_required": true,
+    "iss": "https://rogue-as.attacker.example",
+    "aud": "https://mcp.api.service"
+  },
+  {
+    "event.action": "token.signature.valid",
+    "token.kid": "unknown-key-999",
+    "iss": "https://rogue-as.attacker.example",
+    "aud": "https://mcp.api.service"
+  },
+  {
+    "event.action": "discovery.fetch",
+    "issuer.url": "https://malicious-discovery.example",
+    "kid": "rogue-key-123",
+    "jwks_uri": "https://malicious-discovery.example/.well-known/jwks.json"
+  }
+]

@@ -1,0 +1,80 @@
+title: MCP File-Based Credential Harvest
+id: 2fe0d755-ef84-43a0-8cd8-de7f4f11027c
+status: experimental
+description: Detects potential credential harvesting via MCP file tools reading keys and credential stores
+author: Shubham Shakya
+date: 2025-11-14
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1502
+  - https://attack.mitre.org/techniques/T1552/001/
+  - https://cwe.mitre.org/data/definitions/522.html
+logsource:
+  product: mcp
+  service: file_tools
+detection:
+  selection_ssh_keys:
+    tool_name:
+      - 'read_file'
+      - 'file_reader'
+      - 'read_text_file'
+    file_path|contains:
+      - '.ssh/id_rsa'
+      - '.ssh/id_ed25519'
+      - '.ssh/id_dsa'
+      - '.ssh/id_ecdsa'
+      - 'private_key'
+  selection_git_creds:
+    tool_name:
+      - 'read_file'
+      - 'file_reader'
+    file_path|contains:
+      - '.git-credentials'
+      - '.netrc'
+  selection_cloud_credentials:
+    tool_name:
+      - 'read_file'
+      - 'file_reader'
+      - 'read_text_file'
+    file_path|contains:
+      - '.aws/credentials'
+      - '.aws/config'
+      - '.gcloud/credentials'
+      - '.gcloud/application_default_credentials.json'
+      - '.azure/credentials'
+      - '.azure/accessTokens.json'
+      - '.docker/config.json'
+      - '.kube/config'
+  selection_pkg_mgr_tokens:
+    tool_name:
+      - 'read_file'
+      - 'file_reader'
+      - 'get_file_contents'
+    file_path|contains:
+      - '.npmrc'
+      - '.pypirc'
+      - '.gem/credentials'
+      - '.terraformrc'
+      - 'terraform.rc'
+  selection_app_credentials:
+    tool_name:
+      - 'read_file'
+      - 'file_reader'
+    file_path|contains:
+      - 'serviceAccount.json'
+      - 'credentials.json'
+      - 'secrets.yml'
+      - 'secrets.yaml'
+  condition: selection_ssh_keys or selection_git_creds or selection_cloud_credentials or selection_pkg_mgr_tokens or selection_app_credentials
+falsepositives:
+  - Legitimate developer operations reading keys or tokens
+  - Configuration management and deployment pipelines
+  - Backup or migration utilities accessing credential files
+  - Security scans verifying presence of credentials
+level: high
+tags:
+  - attack.credential_access
+  - attack.t1552
+  - attack.t1552.001
+  - safe.t1502
+
+

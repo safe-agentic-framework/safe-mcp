@@ -1,0 +1,195 @@
+title: OAuth Token Scope Substitution Attack Detection
+id: 81be6870-4550-4fd6-adb9-54567d58ad75
+status: experimental
+description: |
+  Detects potential OAuth token scope substitution attacks where attackers swap limited-scope tokens 
+  with elevated-scope tokens to gain unauthorized privileges. This rule identifies scope mismatches,
+  anomalous privilege usage patterns, and cross-tool privilege escalation attempts in MCP environments.
+
+  Token scope substitution exploits insufficient scope validation at Resource Servers, where tokens
+  with elevated scopes are used for operations that should be restricted to specific privilege levels.
+author: Raju Kumar Yadav
+date: 2025-11-20
+modified: 2025-11-20
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1308
+  - https://datatracker.ietf.org/doc/html/rfc6819#section-5.1.5
+  - https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics
+  - https://owasp.org/www-project-api-security/
+  - https://modelcontextprotocol.io/specification/draft/basic/security_best_practices
+logsource:
+  product: mcp
+  service: oauth_authorization
+  category: api_access
+detection:
+  # Detection 1: Direct scope validation failures
+  selection_scope_mismatch:
+    event_type: "authorization_check"
+    token_signature_valid: true
+    audience_validation: "passed"
+    scope_validation: "failed"
+
+  # Detection 2: Elevated operations with unusual scopes
+  selection_elevated_operation:
+    event_type:
+      - "api_request"
+      - "mcp_tool_invocation"
+    operation_type:
+      - "delete"
+      - "admin"
+      - "modify_permissions"
+      - "system_config"
+      - "write_all"
+      - "grant_access"
+    token_scope|contains:
+      - "admin"
+      - "delete"
+      - "write_all"
+      - "*"
+
+  # Detection 3: Scope anomaly indicators
+  selection_scope_anomaly:
+    event_type: "scope_usage_analysis"
+    scope_deviation_severity:
+      - "high"
+      - "critical"
+    scope_elevation_detected: true
+    baseline_exceeded: true
+
+  # Detection 4: Multiple tokens with different scopes in short window
+  selection_token_switching:
+    event_type: "token_usage_pattern"
+    unique_token_count|gte: 2
+    scope_variance: "high"
+    time_window_seconds|lte: 300
+    same_user: true
+
+  # Detection 5: Cross-tool privilege escalation in MCP
+  selection_cross_tool_escalation:
+    event_type: "mcp_tool_chain_analysis"
+    source_tool_scope:
+      - "read"
+      - "list"
+      - "view"
+    target_operation_scope:
+      - "write"
+      - "delete"
+      - "admin"
+      - "execute"
+    privilege_elevation: true
+
+  # Detection 6: Scope substitution indicators
+  selection_scope_substitution:
+    event_type: "token_analysis"
+    token_scope_change_detected: true
+    audience_match: true
+    issuer_match: true
+    different_token_id: true
+    elevated_scope: true
+
+  # Detection 7: Repeated auth failures followed by success
+  selection_auth_retry_pattern:
+    event_type: "authorization_sequence"
+    failed_attempts|gte: 2
+    final_attempt_status: "success"
+    token_changed: true
+    time_window_seconds|lte: 60
+
+  # Detection 8: Service account token misuse
+  selection_service_account_abuse:
+    event_type: "api_request"
+    token_subject_type: "service_account"
+    requester_type: "user"
+    token_scope|contains:
+      - "admin"
+      - "service"
+      - "automation"
+
+  # Detection 9: Cross-service token reuse
+  selection_cross_service:
+    event_type: "token_validation"
+    token_audience_mismatch: true
+    token_accepted: true
+    different_service: true
+
+  # Detection 10: Wildcard or overly broad scope usage
+  selection_wildcard_scope:
+    token_scope|contains:
+      - "*"
+      - "all"
+      - "full_access"
+    event_type:
+      - "api_request"
+      - "mcp_tool_invocation"
+
+  # Detection 11: Temporal anomalies (off-hours with elevated scopes)
+  selection_temporal_anomaly:
+    event_type: "api_request"
+    time_of_day: "off_hours"
+    scope_deviation_severity:
+      - "high"
+      - "critical"
+
+  # Detection 12: Geographic anomalies with scope escalation
+  selection_geographic_anomaly:
+    event_type: "api_request"
+    geographic_anomaly: true
+    scope_deviation_severity:
+      - "high"
+      - "critical"
+
+  # Detection 13: Rapid scope escalation pattern
+  selection_rapid_escalation:
+    event_type: "token_usage_pattern"
+    escalation_pattern: "gradual"
+    unique_token_count|gte: 4
+    time_window_seconds|lte: 600
+
+  # Combine detection patterns
+  condition: selection_scope_mismatch or
+    (selection_elevated_operation and selection_scope_anomaly) or
+    selection_token_switching or
+    selection_cross_tool_escalation or
+    selection_scope_substitution or
+    selection_auth_retry_pattern or
+    selection_service_account_abuse or
+    selection_cross_service or
+    selection_wildcard_scope or
+    selection_temporal_anomaly or
+    selection_geographic_anomaly or
+    selection_rapid_escalation
+
+falsepositives:
+  - Legitimate users with multiple roles using different appropriately-scoped tokens
+  - Authorized service accounts with broad scopes performing automation tasks
+  - Administrative operations during scheduled maintenance windows
+  - Multi-tenant environments with complex but legitimate permission structures
+  - Development and testing environments with intentionally relaxed scope enforcement
+  - Legitimate role transitions where users are granted elevated privileges
+  - OAuth flows that intentionally request broad scopes for legitimate purposes
+  - Cross-tool workflows in MCP that legitimately require scope elevation
+level: high
+tags:
+  - attack.privilege_escalation
+  - attack.t1134 # Access Token Manipulation
+  - attack.t1550 # Use Alternate Authentication Material
+  - attack.t1078 # Valid Accounts
+  - safe.t1308
+fields:
+  - event_type
+  - timestamp
+  - user_id
+  - token_id
+  - token_subject
+  - token_issuer
+  - token_audience
+  - granted_scopes
+  - required_scope
+  - operation_type
+  - api_endpoint
+  - validation_result
+  - source_ip
+  - user_agent
+  - mcp_tool_name
+  - privilege_level
+  - scope_elevation_amount

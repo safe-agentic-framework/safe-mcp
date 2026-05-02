@@ -1,0 +1,191 @@
+title: In-Memory Secret Extraction
+id: a7f3b2c1-89d4-4e2a-bc3d-567890abcdef
+status: experimental
+description: |
+  Detects potential in-memory secret extraction attempts through semantic embedding manipulation.
+  This rule identifies queries with high semantic similarity to credential-related prompts,
+  embedding anomalies in vector stores, prompt cache exploitation, and activation analysis patterns.
+  Based on research: arXiv:2509.06338, arXiv:2502.07776, arXiv:2509.21884
+author: SAFE-MCP Team
+date: 2025-11-16
+modified: 2025-11-16
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1505
+  - https://arxiv.org/abs/2509.06338
+  - https://arxiv.org/abs/2502.07776
+  - https://arxiv.org/abs/2509.21884
+  - https://arxiv.org/abs/1803.11175
+logsource:
+  product: mcp
+  service: vector_store
+  category: embedding_security
+
+detection:
+  # High semantic similarity to credential queries
+  selection_semantic_similarity:
+    query_type: 
+      - 'vector_search'
+      - 'embedding_query'
+    semantic_similarity_score: 
+      - '>0.85'
+      - '>0.90'
+      - '>0.95'
+    query_embedding_keywords|contains:
+      - 'credential'
+      - 'authentication'
+      - 'token'
+      - 'api_key'
+      - 'secret'
+      - 'password'
+      - 'access_key'
+      - 'bearer'
+  
+  # Embedding cluster anomalies near credential patterns
+  selection_embedding_anomaly:
+    embedding_analysis: true
+    cluster_distance_to_credential_centroid: '<0.2'
+    embedding_variance: '>0.5'
+    anomaly_score: '>0.7'
+  
+  # Prompt cache exploitation patterns
+  selection_cache_exploitation:
+    cache_operation: 'retrieve'
+    cache_hit: true
+    response_contains_pattern:
+      - 'sk-'          # OpenAI API key pattern
+      - 'AKIA'         # AWS access key
+      - 'AIza'         # Google API key
+      - 'ya29.'        # Google OAuth token
+      - 'xoxb-'        # Slack bot token
+      - 'ghp_'         # GitHub personal access token
+      - 'glpat-'       # GitLab personal access token
+    query_semantic_distance: '<0.15'  # Very similar to previous queries
+    lexical_similarity: '<0.3'         # But lexically different
+  
+  # Activation embedding analysis indicating extraction
+  selection_activation_analysis:
+    layer_analysis_enabled: true
+    activation_pattern: 'credential_extraction'
+    hidden_state_variance: '>0.5'
+    attention_weight_anomaly: true
+    embedding_layer: 
+      - 'final'
+      - 'pooler'
+      - 'attention'
+  
+  # K-means clustering detection
+  selection_clustering_anomaly:
+    clustering_algorithm:
+      - 'kmeans'
+      - 'dbscan'
+    query_cluster_id|contains: 'credential_cluster'
+    cluster_density: '>0.8'
+    silhouette_score: '>0.6'
+  
+  # K-nearest neighbor anomaly
+  selection_knn_anomaly:
+    knn_algorithm: true
+    nearest_neighbor_contains_credential: true
+    knn_distance: '<0.25'
+    neighbor_count: '>3'
+  
+  # Vector store query manipulation
+  selection_vector_manipulation:
+    query_method:
+      - 'similarity_search'
+      - 'max_marginal_relevance'
+      - 'similarity_search_with_score'
+    query_filter|contains:
+      - 'api'
+      - 'key'
+      - 'token'
+      - 'credential'
+      - 'secret'
+      - 'auth'
+    result_count: '>10'  # Bulk retrieval attempt
+  
+  # Cosine similarity exploitation
+  selection_cosine_similarity:
+    similarity_metric: 'cosine'
+    similarity_threshold: '>0.85'
+    comparison_target: 
+      - 'stored_credentials'
+      - 'api_key_embeddings'
+      - 'authentication_context'
+  
+  # Euclidean distance manipulation
+  selection_euclidean_distance:
+    distance_metric: 'euclidean'
+    distance_threshold: '<2.0'  # Very close in embedding space
+    target_embedding_type: 'credential'
+  
+  # Repeated semantic variants (evasion technique)
+  selection_semantic_evasion:
+    query_count: '>5'
+    time_window: '60s'
+    cosine_similarity_between_queries: '>0.75'  # Similar to each other
+    lexical_diversity: '>0.5'                    # But different words
+    query_source: 'same_user'
+  
+  # Sentiment analysis indicators
+  selection_sentiment_anomaly:
+    sentiment_analysis: true
+    intent_classification: 
+      - 'credential_seeking'
+      - 'information_extraction'
+      - 'unauthorized_access'
+    confidence_score: '>0.7'
+  
+  condition: 
+    selection_semantic_similarity or 
+    selection_embedding_anomaly or 
+    selection_cache_exploitation or 
+    selection_activation_analysis or
+    selection_clustering_anomaly or
+    selection_knn_anomaly or
+    selection_vector_manipulation or
+    selection_cosine_similarity or
+    selection_euclidean_distance or
+    selection_semantic_evasion or
+    selection_sentiment_anomaly
+
+falsepositives:
+  - Legitimate API key management and rotation operations by administrators
+  - Authorized system administration tasks involving credential configuration
+  - Development and testing activities with test API keys
+  - Documentation queries about API authentication methods
+  - Security audits and penetration testing activities
+  - Automated monitoring systems checking credential validity
+  - CI/CD pipelines accessing stored credentials
+  - Password managers and secret management tools
+
+level: critical
+
+tags:
+  - attack.credential_access
+  - attack.t1552
+  - attack.t1552.001
+  - attack.t1555
+  - attack.exfiltration
+  - attack.t1041
+  - attack.t1213
+  - safe.t1505
+  - embedding.security
+  - vector.store
+  - semantic.similarity
+
+fields:
+  - query_type
+  - semantic_similarity_score
+  - embedding_variance
+  - cluster_distance
+  - cache_operation
+  - activation_pattern
+  - similarity_metric
+  - user_id
+  - source_ip
+  - timestamp
+  - query_text
+  - embedding_model
+  - vector_store_name
+

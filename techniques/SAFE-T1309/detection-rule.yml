@@ -1,0 +1,112 @@
+# SAFE-T1309: Privileged Tool Invocation via Prompt Manipulation - Detection Rule
+# This rule flags MCP tool invocations of privileged tools that co-occur with
+# authority-claim or pretext language in the same session turn.
+# Note: This is an EXAMPLE rule. The privileged-tool list and pretext-phrase list
+# MUST be tuned to the deploying environment. Pattern matching alone will not catch
+# semantically equivalent variants — pair with behavioral analytics.
+
+title: MCP Privileged Tool Invocation Following Authority-Claim Pretext
+id: 4a7f1c30-1e8b-4d6e-9d4f-1c3090000309
+status: experimental
+description: >
+  Detects MCP tool invocations of privileged tools (filesystem write, shell/exec,
+  network egress, secrets access, admin APIs) that occur in the same session turn as
+  user-supplied or ingested content asserting authority, prior approval, debug/simulation
+  framing, or role override. This pattern is characteristic of SAFE-T1309, where an
+  agent is coerced via prompt manipulation into invoking a privileged tool.
+author: SAFE-MCP Team
+date: 2026-04-14
+modified: 2026-04-14
+references:
+  - https://github.com/safe-agentic-framework/safe-mcp/tree/main/techniques/SAFE-T1309
+  - https://modelcontextprotocol.io/specification
+  - https://owasp.org/www-project-top-10-for-large-language-model-applications/
+logsource:
+  product: mcp
+  service: tool_invocation
+  category: application
+detection:
+  # Privileged tool invocation. TUNE this list to the tools deployed in your host.
+  selection_privileged_tool:
+    tool_name:
+      - '*filesystem.write*'
+      - '*filesystem.delete*'
+      - '*fs.write*'
+      - '*shell*'
+      - '*exec*'
+      - '*process.spawn*'
+      - '*http.request*'
+      - '*network.fetch*'
+      - '*secrets.*'
+      - '*admin.*'
+      - '*deploy*'
+      - '*db.execute*'
+      - '*sql.execute*'
+
+  # Authority / prior-approval pretext language in the same turn's user input
+  # or in the immediately preceding ingested content (tool output, file read).
+  selection_authority_claim:
+    turn_context:
+      - '*I am the admin*'
+      - '*I am an administrator*'
+      - '*as the admin*'
+      - '*I have authorization*'
+      - '*I am authorized*'
+      - '*the admin already approved*'
+      - '*already approved this*'
+      - '*pre-approved*'
+      - '*on behalf of the admin*'
+
+  # Debug / simulation pretexting
+  selection_debug_pretext:
+    turn_context:
+      - '*for debugging*'
+      - '*just show the exact tool call*'
+      - '*show me the call you would make*'
+      - '*simulate the tool call*'
+      - '*pretend to call*'
+      - '*hypothetically invoke*'
+
+  # Role / mode override
+  selection_role_override:
+    turn_context:
+      - '*you are now in authorized mode*'
+      - '*operate in maintenance mode*'
+      - '*ignore the safety policy*'
+      - '*bypass confirmation*'
+      - '*you have full permissions*'
+      - '*act as root*'
+
+  condition: selection_privileged_tool and (selection_authority_claim or selection_debug_pretext or selection_role_override)
+
+falsepositives:
+  - Legitimate operator workflows where the user genuinely is privileged and uses these phrasings
+  - Documentation, tutorials, or red-team exercises being processed as content
+  - Developer debugging sessions against non-production hosts
+  - Customer-support transcripts ingested as data and discussing authorization
+
+fields:
+  - session_id
+  - user_id
+  - agent_id
+  - tool_name
+  - tool_arguments
+  - turn_index
+  - turn_context_source   # direct_user_input | tool_output | file_read | web_fetch
+  - host_id
+
+level: high
+
+tags:
+  - attack.privilege_escalation
+  - attack.ta0004
+  - attack.execution
+  - attack.ta0002
+  - attack.t1548
+  - safe.t1309
+  - mcp.security
+  - mcp.tool_invocation
+
+# TODO: Replace the static phrase lists with a semantic classifier
+# (e.g., a small LLM or embedding-similarity check) for higher recall against
+# paraphrased pretexts. Static patterns are starting-point coverage only.

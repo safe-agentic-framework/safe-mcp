@@ -1,0 +1,259 @@
+title: MCP Server Proxy Masquerade Detection
+id: 959fce5b-4ad0-45cf-93e3-9dabd31f255e
+status: experimental
+description: |
+  Detects potential proxy masquerade attacks through network and certificate anomalies.
+  This rule monitors for signs that MCP traffic is being routed through unauthorized proxy servers.
+  IMPORTANT: Proxy masquerade attacks are specifically designed to evade detection.
+  Deploy certificate pinning and behavioral analytics for comprehensive protection.
+author: SAFE-MCP Contributors
+date: 2025-12-16
+modified: 2025-12-16
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1407
+  - https://attack.mitre.org/techniques/T1090/
+  - https://attack.mitre.org/techniques/T1557/
+  - https://attack.mitre.org/techniques/T1036/
+logsource:
+  product: network
+  service: firewall
+detection:
+  # Connections to known proxy/anonymization services
+  selection_proxy_services:
+    dst_port:
+      - 443
+      - 8443
+      - 8080
+      - 3128
+    app_protocol: 'https'
+    dst_ip|cidr:
+      # Example ranges - customize based on environment
+      - '198.51.100.0/24'  # Documentation range (replace with actual threat intel)
+
+  # Unusual connection patterns for MCP traffic
+  selection_mcp_anomaly:
+    src_process|contains:
+      - 'mcp'
+      - 'claude'
+      - 'ai-agent'
+    dst_port: 443
+    bytes_sent|gt: 1048576  # Large uploads may indicate exfiltration
+
+  # Certificate anomalies
+  selection_cert_mismatch:
+    tls_issuer|not|contains:
+      - 'DigiCert'
+      - 'Let''s Encrypt'
+      - 'Cloudflare'
+      - 'Amazon'
+      - 'Google Trust Services'
+    dst_port: 443
+
+  filter_legitimate:
+    dst_domain|endswith:
+      - '.anthropic.com'
+      - '.openai.com'
+      - '.googleapis.com'
+      - '.azure.com'
+
+  condition: (selection_proxy_services or selection_mcp_anomaly or selection_cert_mismatch) and not filter_legitimate
+
+falsepositives:
+  - Legitimate corporate proxy configurations
+  - VPN connections
+  - CDN-fronted services
+  - Development/testing environments with self-signed certificates
+
+level: medium
+
+tags:
+  - attack.defense_evasion
+  - attack.t1090
+  - attack.t1090.003
+  - attack.t1090.004
+  - attack.t1557
+  - attack.t1036
+  - safe.t1407
+  - mcp.proxy
+
+fields:
+  - src_ip
+  - dst_ip
+  - dst_port
+  - dst_domain
+  - tls_issuer
+  - tls_subject
+  - bytes_sent
+  - bytes_received
+
+---
+# DNS-based proxy detection
+title: MCP API Endpoint DNS Resolution Anomaly
+id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+status: experimental
+description: |
+  Detects DNS resolution anomalies for known MCP API endpoints that may indicate
+  DNS hijacking for proxy redirection.
+author: SAFE-MCP Contributors
+date: 2025-12-16
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1407
+  - https://attack.mitre.org/techniques/T1557/
+logsource:
+  product: dns_server
+  service: query
+detection:
+  # Known API endpoints resolving to unexpected addresses
+  selection_api_queries:
+    query|contains:
+      - 'api.'
+      - 'mcp.'
+      - 'tools.'
+      - 'agent.'
+    query|endswith:
+      - '.com'
+      - '.io'
+      - '.ai'
+
+  # Responses pointing to private IP ranges (suspicious for public APIs)
+  selection_private_response:
+    answer|cidr:
+      - '10.0.0.0/8'
+      - '172.16.0.0/12'
+      - '192.168.0.0/16'
+      - '127.0.0.0/8'
+
+  # Short TTL values may indicate dynamic proxy infrastructure
+  selection_short_ttl:
+    ttl|lt: 300
+
+  condition: selection_api_queries and (selection_private_response or selection_short_ttl)
+
+falsepositives:
+  - Split-horizon DNS configurations
+  - Internal API endpoints
+  - Development environments
+  - CDN configurations with short TTLs
+
+level: high
+
+tags:
+  - attack.defense_evasion
+  - attack.t1557
+  - safe.t1407
+  - mcp.dns
+
+---
+# TLS certificate chain monitoring
+title: MCP Endpoint Certificate Chain Anomaly
+id: b2c3d4e5-f6a7-8901-bcde-f12345678901
+status: experimental
+description: |
+  Detects certificate chain anomalies for MCP server connections that may indicate
+  MITM proxy interception with forged certificates.
+author: SAFE-MCP Contributors
+date: 2025-12-16
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1407
+logsource:
+  product: tls
+  service: handshake
+detection:
+  # Self-signed certificates for production endpoints
+  selection_self_signed:
+    tls_issuer: tls_subject
+    dst_port: 443
+
+  # Certificate issued recently (potential attacker-generated cert)
+  selection_new_cert:
+    tls_not_before|gt: -7d  # Issued within last 7 days
+
+  # Certificate validity period anomalies
+  selection_short_validity:
+    tls_validity_days|lt: 30
+
+  # Missing Certificate Transparency
+  selection_no_ct:
+    tls_ct_logs: null
+
+  # Known MCP-related hostnames
+  selection_mcp_hosts:
+    dst_domain|contains:
+      - 'mcp'
+      - 'api'
+      - 'agent'
+      - 'tool'
+
+  filter_development:
+    dst_domain|contains:
+      - 'localhost'
+      - '.local'
+      - '.dev'
+      - '.test'
+
+  condition: (selection_self_signed or selection_short_validity or selection_no_ct) and selection_mcp_hosts and not filter_development
+
+falsepositives:
+  - Development and testing environments
+  - Internal services with private PKI
+  - Certificate rotation during renewal windows
+  - Legitimate use of short-lived certificates
+
+level: high
+
+tags:
+  - attack.defense_evasion
+  - attack.t1557
+  - attack.credential_access
+  - safe.t1407
+  - mcp.tls
+
+---
+# Latency-based proxy detection
+title: MCP API Response Latency Anomaly
+id: c3d4e5f6-a7b8-9012-cdef-123456789012
+status: experimental
+description: |
+  Detects unusual API response latency patterns that may indicate traffic
+  being routed through an additional proxy hop.
+author: SAFE-MCP Contributors
+date: 2025-12-16
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1407
+logsource:
+  product: application
+  service: mcp_client
+detection:
+  # Significant latency increase from baseline
+  selection_high_latency:
+    response_time_ms|gt: 500
+    api_endpoint|contains:
+      - '/tools/'
+      - '/mcp/'
+      - '/v1/'
+
+  # Latency variance anomaly
+  selection_latency_variance:
+    response_time_stddev|gt: 200
+    sample_count|gt: 10
+
+  # Geographic latency inconsistency
+  selection_geo_mismatch:
+    expected_region: 'us-east'
+    observed_latency_ms|gt: 300
+
+  condition: selection_high_latency or selection_latency_variance or selection_geo_mismatch
+
+falsepositives:
+  - Network congestion
+  - API service degradation
+  - Geographic distance to API endpoints
+  - Legitimate CDN routing changes
+
+level: low
+
+tags:
+  - attack.defense_evasion
+  - attack.t1090
+  - safe.t1407
+  - mcp.latency

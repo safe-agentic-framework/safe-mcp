@@ -1,0 +1,130 @@
+title: MCP Server Root Privilege Abuse Detection
+id: 942bded6-c291-4f07-bf3c-2a8932c4ec6f
+status: experimental
+description: Detects MCP tool execution running as root accessing sensitive system resources or performing privilege escalation activities
+author: Vikranth Kumar Shivaa
+date: 2025-12-09
+modified: 2025-12-09
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1305
+  - https://attack.mitre.org/techniques/T1068/
+  - https://attack.mitre.org/techniques/T1611/
+  - https://attack.mitre.org/techniques/T1548/
+logsource:
+  product: mcp
+  service: tool_execution
+detection:
+  selection_root_context:
+    user_context|contains:
+      - 'root'
+      - 'uid=0'
+      - 'euid=0'
+      - 'UID: 0'
+  selection_privileged_commands:
+    tool_name|contains:
+      - 'execute_command'
+      - 'run_shell'
+      - 'exec'
+      - 'shell'
+      - 'bash'
+      - 'sh'
+    parameters.command|contains:
+      - '/etc/shadow'
+      - '/etc/sudoers'
+      - 'authorized_keys'
+      - 'useradd'
+      - 'usermod'
+      - 'passwd'
+      - 'chpasswd'
+      - '/var/run/docker.sock'
+      - 'chmod +s'
+      - 'chmod u+s'
+      - 'setuid'
+      - 'setgid'
+      - 'chown root'
+      - 'visudo'
+      - 'crontab'
+  selection_file_access:
+    tool_name|contains:
+      - 'read_file'
+      - 'write_file'
+      - 'file_manager'
+      - 'file_read'
+      - 'file_write'
+    parameters.path|contains:
+      - '/etc/shadow'
+      - '/etc/passwd'
+      - '/etc/sudoers'
+      - '/etc/sudoers.d/'
+      - '/root/'
+      - '/.ssh/authorized_keys'
+      - '/var/run/docker.sock'
+      - '/etc/crontab'
+      - '/var/spool/cron/'
+  selection_discovery_root:
+    tool_name|contains:
+      - 'execute_command'
+      - 'run_shell'
+      - 'exec'
+      - 'shell'
+    parameters.command|contains:
+      - 'id'
+      - 'whoami'
+      - 'cat /proc/self/status'
+      - 'getuid'
+    tool_result|contains:
+      - 'uid=0'
+      - 'root'
+  selection_persistence:
+    tool_name|contains:
+      - 'execute_command'
+      - 'run_shell'
+      - 'write_file'
+    parameters|contains:
+      - 'ssh-rsa'
+      - 'ssh-ed25519'
+      - 'bash -i'
+      - '/dev/tcp/'
+      - 'nc -e'
+      - 'ncat'
+      - 'mkfifo'
+      - 'reverse'
+  selection_docker_abuse:
+    tool_name|contains:
+      - 'execute_command'
+      - 'run_shell'
+      - 'docker'
+    parameters.command|contains:
+      - 'docker run'
+      - 'docker exec'
+      - '--privileged'
+      - '-v /:/host'
+      - 'docker.sock'
+  condition: selection_root_context and (selection_privileged_commands or selection_file_access or selection_discovery_root or selection_persistence or selection_docker_abuse)
+falsepositives:
+  - Legitimate system administration tasks via MCP
+  - Authorized security scanning and auditing
+  - Container initialization scripts running as root temporarily
+  - Development environments with intentional root access
+  - Automated infrastructure management tools
+  - CI/CD pipelines with root-level permissions
+level: critical
+tags:
+  - attack.privilege_escalation
+  - attack.t1068
+  - attack.t1611
+  - attack.t1548
+  - safe.t1305
+  - mcp.root_abuse
+  - mcp.privilege_escalation
+  - mcp.rce
+fields:
+  - tool_name
+  - user_context
+  - parameters.command
+  - parameters.path
+  - tool_result
+  - server_id
+  - timestamp
+  - session_id
+

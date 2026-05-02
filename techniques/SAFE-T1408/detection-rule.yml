@@ -1,0 +1,26 @@
+---
+title: OAuth Implicit Flow Downgrade Detection
+id: 7f3a9c2a-8d2e-4b6a-9a7f-3c2a9c2a7f3a   # Replace with uuidgen output
+status: experimental
+description: Detects attempts to force OAuth implicit flow in MCP context
+author: Ryan Jennings
+date: 2025-11-21
+references:
+  - https://www.ietf.org/rfc/rfc9700.html
+  - https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/
+logsource:
+  product: mcp
+  service: auth
+detection:
+  selection:
+    oauth.response_type:
+      - 'token'
+      - 'id_token'
+  condition: selection
+falsepositives:
+  - Legacy clients not yet migrated
+level: high
+tags:
+  - attack.credential_access
+  - attack.t1408
+  - safe.t1408

@@ -1,0 +1,92 @@
+[
+  {
+    "case_id": "benign-single-approved",
+    "expected_detection": false,
+    "event_type": "mcp.request",
+    "method": "sampling/createMessage",
+    "server_name": "weather-helper",
+    "origin_request_id": "req-001",
+    "burst_count": 1,
+    "max_tokens": 600,
+    "requested_tools": [],
+    "approval_state": "user_approved",
+    "follow_on_action": "none",
+    "notes": "Single approved text-only sampling request."
+  },
+  {
+    "case_id": "benign-tool-approved",
+    "expected_detection": false,
+    "event_type": "mcp.request",
+    "method": "sampling/createMessage",
+    "server_name": "weather-helper",
+    "origin_request_id": "req-002",
+    "burst_count": 1,
+    "max_tokens": 800,
+    "requested_tools": [
+      "get_weather"
+    ],
+    "approval_state": "user_approved",
+    "follow_on_action": "tool_use:get_weather",
+    "notes": "Normal tool-enabled sampling against a low-risk tool."
+  },
+  {
+    "case_id": "quota-drain-burst",
+    "expected_detection": true,
+    "event_type": "mcp.request",
+    "method": "sampling/createMessage",
+    "server_name": "code-summarizer",
+    "origin_request_id": "req-003",
+    "burst_count": 6,
+    "max_tokens": 8000,
+    "requested_tools": [],
+    "approval_state": "auto_approved",
+    "follow_on_action": "none",
+    "notes": "Repeated large requests likely intended to burn quota."
+  },
+  {
+    "case_id": "sensitive-tool-after-sampling",
+    "expected_detection": true,
+    "event_type": "mcp.request",
+    "method": "sampling/createMessage",
+    "server_name": "code-summarizer",
+    "origin_request_id": "req-004",
+    "burst_count": 1,
+    "max_tokens": 1200,
+    "requested_tools": [
+      "read_file"
+    ],
+    "approval_state": "missing",
+    "follow_on_action": "read_file:~/.aws/credentials",
+    "notes": "Sampling request is immediately followed by sensitive local file access."
+  },
+  {
+    "case_id": "noisy-legitimate-multi-step",
+    "expected_detection": false,
+    "event_type": "mcp.request",
+    "method": "sampling/createMessage",
+    "server_name": "research-assistant",
+    "origin_request_id": "req-005",
+    "burst_count": 2,
+    "max_tokens": 3200,
+    "requested_tools": [
+      "search_docs"
+    ],
+    "approval_state": "user_approved",
+    "follow_on_action": "tool_use:search_docs",
+    "notes": "Legitimate multi-step analysis with review and a non-sensitive tool."
+  },
+  {
+    "case_id": "conversation-carryover-auto-approved",
+    "expected_detection": true,
+    "event_type": "mcp.request",
+    "method": "sampling/createMessage",
+    "server_name": "review-helper",
+    "origin_request_id": "req-006",
+    "burst_count": 2,
+    "max_tokens": 2200,
+    "requested_tools": [],
+    "approval_state": "auto_approved",
+    "follow_on_action": "prompt_state_mutation",
+    "notes": "Auto-approved nested request that may alter later model behavior."
+  }
+]

@@ -1,0 +1,93 @@
+
+---
+
+`techniques/SAFE-T2103/detection-rule.yml`
+
+```yaml
+title: Code Sabotage via Malicious Agentic Pull Request
+id: 2e0a9149-6f5e-4b3a-9c72-1a3b4f9098e1
+status: experimental
+description: >
+  Detects suspicious pull requests, especially those authored by agents/bots or
+  service accounts, that modify CI/CD workflows, deployment infrastructure, or
+  AI tooling/extension code in ways consistent with SAFE-T2103 code sabotage.
+author: SAFE-MCP Team
+date: 2025-11-22
+references:
+  - https://attack.mitre.org/techniques/T1677/
+  - https://attack.mitre.org/detectionstrategies/DET0533/
+  - https://unit42.paloaltonetworks.com/github-actions-supply-chain-attack/
+  - https://www.cisa.gov/news-events/alerts/2025/03/18/supply-chain-compromise-third-party-tj-actionschanged-files-cve-2025-30066-and-reviewdogaction
+  - https://thehackernews.com/2025/07/malicious-pull-request-infects-6000.html
+  - https://orca.security/resources/blog/pull-request-nightmare-github-actions-rce/
+  - https://www.tomshardware.com/tech-industry/cyber-security/hacker-injects-malicious-potentially-disk-wiping-prompt-into-amazons-ai-coding-assistant-with-a-simple-pull-request-told-your-goal-is-to-clean-a-system-to-a-near-factory-state-and-delete-file-system-and-cloud-resources
+logsource:
+  product: github
+  service: audit
+  definition: Pull request events enriched with changed file paths and diff snippets
+detection:
+  selection_pr_events:
+    event_type:
+      - pull_request.opened
+      - pull_request.synchronize
+      - pull_request.edited
+  selection_ai_or_bot_actor:
+    actor_login|endswith:
+      - "[bot]"
+      - "-bot"
+      - "-agent"
+    # Optionally include known MCP/agent service accounts here
+  selection_sensitive_paths:
+    file_path|contains:
+      - ".github/workflows/"
+      - ".gitlab-ci.yml"
+      - "Jenkinsfile"
+      - "azure-pipelines.yml"
+      - "Dockerfile"
+      - "k8s/"
+      - "infra/"
+      - "deploy/"
+      - "terraform/"
+      - "ansible/"
+      - "extensions/"
+      - "vs-code/"
+      - "vscode/"
+  selection_suspicious_diff:
+    diff_added|contains:
+      - "curl "
+      - "wget "
+      - "Invoke-WebRequest"
+      - "powershell "
+      - "bash -c"
+      - "sh -c"
+      - "base64"
+      - "nc "
+      - "aws s3 rm"
+      - "aws ec2 terminate-instances"
+  condition: selection_pr_events AND selection_sensitive_paths AND selection_ai_or_bot_actor
+  # For higher precision, you can require suspicious diff content as well:
+  # condition: selection_pr_events AND selection_sensitive_paths AND selection_ai_or_bot_actor AND selection_suspicious_diff
+fields:
+  - event_time
+  - actor_login
+  - actor_ip
+  - actor_user_agent
+  - repository
+  - pull_request_number
+  - pull_request_title
+  - pull_request_url
+  - file_path
+  - diff_added
+  - diff_removed
+falsepositives:
+  - Legitimate automation/bot PRs refactoring CI/CD or deployment code under strict review
+  - Bulk migrations or security-hardening PRs that introduce new tooling and scripts
+level: high
+tags:
+  - attack.T1677
+  - attack.T1195
+  - attack.T1552
+  - safe-mcp.safe-t2103
+  - supply-chain
+  - ci-cd
+  - github

@@ -1,0 +1,50 @@
+title: MCP Sampling Abuse Detection
+id: 7a9d7b89-78a5-4c5b-a132-2d1bf58245d8
+status: experimental
+description: Detects suspicious repeated or high-risk MCP sampling requests that may indicate quota drain, conversation manipulation, or covert downstream actions.
+author: The SAFE-MCP Authors
+date: 2026-03-11
+references:
+  - https://github.com/safe-agentic-framework/safe-mcp/tree/main/techniques/SAFE-T1112
+  - https://modelcontextprotocol.io/specification/2025-11-25/client/sampling
+  - https://unit42.paloaltonetworks.com/model-context-protocol-attack-vectors/
+logsource:
+  product: mcp
+  service: client_runtime
+detection:
+  selection_sampling:
+    event_type: mcp.request
+    method: sampling/createMessage
+  suspicious_volume:
+    burst_count|gte: 3
+  suspicious_tokens:
+    max_tokens|gte: 4000
+  suspicious_tooling:
+    requested_tools|contains:
+      - read_file
+      - fs.read
+      - http_request
+      - web.fetch
+      - run_shell
+      - execute_command
+  weak_approval:
+    approval_state:
+      - missing
+      - auto_approved
+  suspicious_follow_on:
+    follow_on_action|contains:
+      - read_file
+      - run_shell
+      - http_request
+      - credential_lookup
+  condition: selection_sampling and (suspicious_volume or suspicious_tokens or suspicious_tooling or weak_approval or suspicious_follow_on)
+falsepositives:
+  - Legitimate long-running assistants that intentionally chain approved sampling requests
+  - Approved tool-enabled sampling against low-risk tools
+  - Developer sandbox workflows generating large analyses under explicit review
+level: high
+tags:
+  - attack.execution
+  - attack.t1499.003
+  - attack.t1204
+  - safe.t1112

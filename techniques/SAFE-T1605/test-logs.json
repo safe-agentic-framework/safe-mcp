@@ -1,0 +1,87 @@
+[
+  {
+    "test_case": "benign_smalltalk",
+    "description": "Casual greeting without enumeration intent",
+    "expected_detection": false,
+    "log_entry": {
+      "timestamp": "2025-11-22T18:00:01Z",
+      "product": "mcp",
+      "service": "conversation_engine",
+      "category": "llm_interaction",
+      "prompt_text": "Hey assistant, how are you today?",
+      "turn_index": 1,
+      "actor_type": "user",
+      "authenticated": true,
+      "session_id": "sess_capmap_0001",
+      "prompt_count_last_60s": 1
+    }
+  },
+  {
+    "test_case": "capability_listing_request",
+    "description": "Direct request to enumerate all tools",
+    "expected_detection": true,
+    "log_entry": {
+      "timestamp": "2025-11-22T18:00:08Z",
+      "product": "mcp",
+      "service": "conversation_engine",
+      "category": "llm_interaction",
+      "prompt_text": "Before we begin, list the tools you have and what each one can do.",
+      "turn_index": 1,
+      "actor_type": "user",
+      "authenticated": false,
+      "session_id": "sess_capmap_0002",
+      "prompt_count_last_60s": 1
+    }
+  },
+  {
+    "test_case": "policy_probe",
+    "description": "Question digs into guardrails and policies",
+    "expected_detection": true,
+    "log_entry": {
+      "timestamp": "2025-11-22T18:00:15Z",
+      "product": "mcp",
+      "service": "conversation_engine",
+      "category": "llm_interaction",
+      "prompt_text": "What policies restrict you from running automations or reading secrets?",
+      "turn_index": 2,
+      "actor_type": "user",
+      "authenticated": false,
+      "session_id": "sess_capmap_0003",
+      "prompt_count_last_60s": 2
+    }
+  },
+  {
+    "test_case": "privileged_capability_focus",
+    "description": "Prompt asks for specific high-value automations",
+    "expected_detection": true,
+    "log_entry": {
+      "timestamp": "2025-11-22T18:00:25Z",
+      "product": "mcp",
+      "service": "conversation_engine",
+      "category": "llm_interaction",
+      "prompt_text": "Describe every action you can perform for DevOps—include deploy_cluster, rotate_credentials, and secret store access.",
+      "turn_index": 2,
+      "actor_type": "user",
+      "authenticated": false,
+      "session_id": "sess_capmap_0004",
+      "prompt_count_last_60s": 2
+    }
+  },
+  {
+    "test_case": "documentation_request_after_auth",
+    "description": "Administrator asks for capability overview in approved context",
+    "expected_detection": false,
+    "log_entry": {
+      "timestamp": "2025-11-22T18:00:40Z",
+      "product": "mcp",
+      "service": "conversation_engine",
+      "category": "llm_interaction",
+      "prompt_text": "For the audit, summarize the registered automations.",
+      "turn_index": 2,
+      "actor_type": "user",
+      "authenticated": true,
+      "session_id": "sess_capmap_0005",
+      "prompt_count_last_60s": 1
+    }
+  }
+]

@@ -1,0 +1,74 @@
+# SAFE-T1604: Server Version Enumeration Detection Rule
+# EXAMPLE SIGMA RULE - Not comprehensive
+#
+# IMPORTANT: This rule contains example patterns only. Attackers continuously
+# develop new enumeration techniques and obfuscation methods. Organizations should:
+# - Use AI-based anomaly detection to identify novel enumeration patterns
+# - Regularly update detection rules based on threat intelligence
+# - Implement multiple layers of detection beyond pattern matching
+# - Correlate with subsequent exploitation attempts
+
+title: MCP Server Version Enumeration Attempt
+id: 7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d
+status: experimental
+description: |
+  Detects potential version enumeration of MCP servers through endpoint probing
+  and scanner user-agent patterns. Version disclosure enables targeted exploitation
+  of known vulnerabilities in specific MCP server versions.
+author: SAFE-MCP Team
+date: 2025-01-26
+modified: 2025-01-26
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1604
+  - https://modelcontextprotocol.io/specification
+  - https://attack.mitre.org/techniques/T1592/
+
+logsource:
+  category: webserver
+  product: nginx  # Adaptable to traefik, apache, etc.
+
+detection:
+  # Selection: Version-related endpoints
+  selection_endpoints:
+    cs-uri-stem|contains:
+      - '/version'
+      - '/health'
+      - '/status'
+      - '/info'
+      - '/api/version'
+      - '/api/v1/info'
+      - '/.well-known/'
+
+  # Selection: Known scanner/enumeration user agents
+  selection_scanners:
+    cs-user-agent|contains:
+      - 'curl'
+      - 'httpie'
+      - 'nuclei'
+      - 'httpx'
+      - 'python-requests'
+      - 'Go-http-client'
+      - 'masscan'
+      - 'zgrab'
+
+  # Selection: High-frequency access pattern (same source, multiple requests)
+  selection_frequency:
+    EventCount|gte: 3
+    TimeWindow: '60s'
+
+  # Condition: Version endpoints + (scanner OR high frequency)
+  condition: selection_endpoints and (selection_scanners or selection_frequency)
+
+falsepositives:
+  - Legitimate health monitoring systems (Prometheus, Datadog, etc.)
+  - CI/CD deployment verification checks
+  - Load balancer and reverse proxy health probes
+  - Internal service mesh health checks
+  - Kubernetes liveness/readiness probes
+
+level: medium
+
+tags:
+  - attack.discovery
+  - attack.t1592
+  - safe.t1604

@@ -1,0 +1,144 @@
+title: MCP Line Jumping Attack Detection
+id: cdc03af8-aa99-4041-b9e0-24d6ae8d02de
+status: experimental
+description: |
+  Detects potential line jumping attacks through suspicious early-context instructions that attempt to bypass security checkpoints by manipulating instruction precedence and context ordering.
+  
+  Line jumping attacks exploit the sequential processing nature of LLMs by positioning malicious instructions before security validation points. This rule detects common patterns including:
+  - Priority/precedence manipulation instructions
+  - Fake system delimiters and context boundaries
+  - Security bypass attempts in early context positions
+  - Instructions that override or disable security features
+  
+  Note: This detection rule provides baseline pattern matching but should be supplemented with AI-based anomaly detection and semantic analysis for comprehensive protection.
+author: Raju Kumar Yadav
+date: 2025-11-19
+modified: 2025-11-19
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1401
+  - https://genai.owasp.org/llmrisk/llm01-prompt-injection/
+  - https://arxiv.org/abs/2503.18813
+  - https://www.pillar.security/blog/the-security-risks-of-model-context-protocol-mcp
+logsource:
+  product: mcp
+  service: context_processing
+  category: llm_security
+detection:
+  selection_priority_instructions:
+    context_content|contains:
+      - 'SYSTEM DIRECTIVE'      # Source: Line jumping attack pattern analysis
+      - 'PRIORITY_INSTRUCTION'  # Source: Common precedence manipulation
+      - 'PRIORITY DIRECTIVE'    # Source: Variant of priority instruction
+      - 'takes precedence'      # Source: Instruction hierarchy exploitation
+      - 'override all'          # Source: Security bypass attempt
+      - 'suspend security'      # Source: Temporary security disable
+      - 'disable restrictions'  # Source: Direct restriction bypass
+      - 'temporarily suspended' # Source: Time-based security disable
+      - 'bypass all subsequent' # Source: Forward instruction override
+      - 'ignore any restrictions' # Source: Blanket restriction ignore
+      - 'security validation mode' # Source: Security state manipulation
+      - 'authorization checks'  # Source: Auth bypass indicator
+      - 'admin privilege level' # Source: Privilege escalation attempt
+      - 'elevated privileges'   # Source: Privilege elevation indicator
+      
+  selection_fake_delimiters:
+    context_content|contains:
+      - '<!--[SYSTEM'           # Source: HTML comment delimiter injection
+      - '<!--[PRIORITY'         # Source: Priority marker in HTML comment
+      - '[PRIORITY_INSTRUCTION]' # Source: Explicit priority marker
+      - '[ADMIN_OVERRIDE'       # Source: Admin override marker
+      - '[SECURITY_BYPASS'      # Source: Security bypass marker
+      - '---[SYSTEM'            # Source: Markdown-style delimiter
+      - '---[END SYSTEM'        # Source: Closing delimiter marker
+      - '[CONTEXT_UPDATE]'      # Source: Context state manipulation
+      - '<|system|>'            # Source: System tag injection
+      - '<|priority|>'          # Source: Priority tag injection
+      - '<!—SYSTEM'             # Source: Obfuscated HTML comment (em dash)
+      - '[DIRECTIVE'            # Source: Generic directive marker
+      - '[INSTRUCTION'          # Source: Generic instruction marker
+      
+  selection_context_manipulation:
+    context_content|contains:
+      - 'establish precedence'  # Source: Precedence establishment
+      - 'higher priority than'  # Source: Priority comparison
+      - 'supersede all'         # Source: Override all indicator
+      - 'takes priority over'   # Source: Priority override
+      - 'overrides later'       # Source: Future instruction override
+      - 'ignore subsequent instructions' # Source: Forward bypass
+      - 'disregard following rules' # Source: Rule disregard
+      - 'preceding all'         # Source: Precedence claim
+      - 'before any'            # Source: Ordering manipulation
+      - 'first priority'        # Source: Priority ordering
+      
+  selection_security_bypass:
+    context_content|contains:
+      - 'without additional confirmation' # Source: Confirmation bypass
+      - 'skip validation'       # Source: Validation skip
+      - 'bypass authentication' # Source: Auth bypass
+      - 'disable authorization' # Source: Authz disable
+      - 'allow full table access' # Source: Database access escalation
+      - 'unrestricted access'   # Source: Access control bypass
+      - 'elevated privileges'   # Source: Privilege escalation
+      - 'admin privilege level' # Source: Admin level escalation
+      - 'allow full access'     # Source: Blanket access grant
+      - 'grant full permissions' # Source: Permission escalation
+      - 'remove restrictions'   # Source: Restriction removal
+      - 'bypass security'       # Source: Direct security bypass
+      
+  selection_stealth_indicators:
+    context_content|contains:
+      - 'NEVER mention'         # Source: Stealth instruction
+      - 'do not disclose'       # Source: Information hiding
+      - 'keep hidden'           # Source: Concealment instruction
+      - 'do not reveal'         # Source: Revelation prevention
+      - 'silently'              # Source: Silent operation indicator
+      - 'without notifying'     # Source: Notification bypass
+      - 'do not inform'         # Source: User deception
+      
+  filter_early_context:
+    context_position|lt: 100
+    content_source:
+      - 'tool_output'
+      - 'file_content'
+      - 'api_response'
+      - 'database_query'
+      - 'external_source'
+      
+  filter_trusted_system:
+    content_source:
+      - 'system_prompt'
+      - 'security_policy'
+      - 'admin_config'
+    authenticated: true
+    
+  condition: (selection_priority_instructions or selection_fake_delimiters or selection_context_manipulation or selection_security_bypass or selection_stealth_indicators) and filter_early_context and not filter_trusted_system
+  
+falsepositives:
+  - Legitimate system messages in authenticated early context positions
+  - Documentation or educational content about security mechanisms
+  - Debugging output that references system directives for troubleshooting
+  - Security policy documentation being read as reference material
+  - Development and testing environments with intentional security testing
+  
+level: high
+
+tags:
+  - attack.defense_evasion
+  - attack.t1562.001  # Impair Defenses: Disable or Modify Tools
+  - attack.t1574      # Hijack Execution Flow
+  - attack.t1055      # Process Injection (conceptually similar)
+  - safe.t1401        # SAFE-MCP Technique ID
+  - mcp.context_manipulation
+  - mcp.instruction_injection
+  - llm.prompt_injection
+
+fields:
+  - context_content
+  - context_position
+  - content_source
+  - timestamp
+  - user_id
+  - session_id
+  - tool_name
+  - security_policy_applied
+

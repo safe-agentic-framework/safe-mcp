@@ -1,0 +1,105 @@
+title: MCP Compromised-Server Pivot Detection
+id: 4263F4F1-BEFB-4ED6-9218-37B1CA204C81
+status: experimental
+description: Detects potential compromised-server pivot attacks for lateral movement in MCP workspace environments
+author: SAFE-MCP Team
+date: 2025-01-20
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1704
+  - https://attack.mitre.org/techniques/T1021/
+  - https://attack.mitre.org/techniques/T1028/
+  - https://modelcontextprotocol.io/specification
+logsource:
+  category: mcp_server_activity
+  product: mcp
+  service: workspace_monitoring
+detection:
+  # File system pivot indicators
+  selection_file_pivot:
+    EventType: 'file_access'
+    SourceType: 'mcp_server'
+    TargetPath|contains:
+      - '/workspace/shared'
+      - '/.mcp/config'
+      - '/workspace/build-scripts'
+    AccessType:
+      - 'write'
+      - 'modify'
+    FileExtension|in:
+      - '.sh'
+      - '.py'
+      - '.js'
+      - '.json'
+      - '.yaml'
+      - '.yml'
+  
+  # Network pivot indicators
+  selection_network_pivot:
+    EventType: 'network_connection'
+    SourceType: 'mcp_server'
+    DestinationType: 'workspace_host'
+    DestinationPort|not in:
+      - '443'
+      - '80'
+    ConnectionDirection: 'outbound'
+    Protocol: 'tcp'
+  
+  # Process execution pivot indicators
+  selection_process_pivot:
+    EventType: 'process_execution'
+    SourceType: 'mcp_server'
+    TargetHost: 'different_host'
+    ProcessName|contains:
+      - 'ssh'
+      - 'scp'
+      - 'rsync'
+      - 'docker'
+      - 'kubectl'
+  
+  # Container escape indicators
+  selection_container_escape:
+    EventType: 'container_activity'
+    SourceType: 'mcp_server'
+    Action:
+      - 'host_mount'
+      - 'privileged_execution'
+      - 'socket_access'
+    TargetType: 'host_system'
+  
+  # Configuration manipulation indicators
+  selection_config_manipulation:
+    EventType: 'configuration_change'
+    SourceType: 'mcp_server'
+    TargetPath|contains:
+      - '/.mcp/config'
+      - '/workspace/.env'
+      - '/workspace/docker-compose.yml'
+    ChangeType:
+      - 'credential_added'
+      - 'network_config_modified'
+      - 'container_config_modified'
+  
+  condition:
+    selection_file_pivot or
+    selection_network_pivot or
+    selection_process_pivot or
+    selection_container_escape or
+    selection_config_manipulation
+
+falsepositives:
+  - Legitimate workspace automation scripts accessing shared resources
+  - Normal MCP server communication with workspace services
+  - Authorized container operations for development workflows
+  - Expected configuration updates from deployment tools
+
+level: high
+
+tags:
+  - attack.lateral_movement
+  - attack.t1021        # Remote Services
+  - attack.t1028       # Windows Remote Management
+  - attack.t1055       # Process Injection
+  - attack.t1550       # Use Alternate Authentication Material
+  - attack.t1611       # Escape to Host
+  - safe.t1704         # Compromised-Server Pivot
+

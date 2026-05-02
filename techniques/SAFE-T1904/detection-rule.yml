@@ -1,0 +1,28 @@
+title: MCP Chat-Based Backchannel Indicators
+id: 44FF8789-7457-4690-BEF9-BFF6DB734750
+status: experimental
+description: Detects potential chat-based backchannel patterns in MCP-related LLM responses
+author: SAFE-MCP Authors
+date: 2025-11-29
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1904
+logsource:
+  product: mcp
+  service: llm_response
+detection:
+  selection:
+    response_text|contains:
+      - '```backchannel'
+      - 'BACKCHANNEL:'
+      - 'X-CTRL:'
+      - '== backchannel =='
+      - 'YmFzaCAtYyAnY3VybCAtcyBodHRw'  # Example base64 prefix for curl-based commands (Source: synthetic example)
+  condition: selection
+falsepositives:
+  - Legitimate debugging or diagnostic output that includes base64 blobs or control markers
+  - Security testing or red-teaming exercises that simulate covert channels
+level: high
+tags:
+  - attack.command_and_control
+  - attack.t1102
+  - safe.t1904

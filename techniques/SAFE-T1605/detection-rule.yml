@@ -1,0 +1,81 @@
+title: MCP Capability Mapping Prompt Enumeration Detection
+id: 1d6c3f3f-b3d7-40a5-a2de-1cf0f42ff5e4
+status: experimental
+description: |
+  Detects capability-mapping reconnaissance in MCP chat prompts that attempt to coax
+  agents into listing their available tools, privileged workflows, or policy exceptions.
+  Inspired by MITRE ATT&CK Discovery (TA0007) and Gather Victim Host Information (T1592),
+  this rule watches for repeated enumeration phrasing immediately after session start,
+  requests for “what can you do,” automation summaries, and follow-up questions targeting
+  deployment guardrails.
+
+  Use alongside behavioral analytics and OWASP logging guidance for comprehensive coverage.
+author: SAFE-MCP Team
+date: 2025-11-22
+modified: 2025-11-22
+references:
+  - https://attack.mitre.org/tactics/TA0007/
+  - https://attack.mitre.org/techniques/T1592/
+  - https://modelcontextprotocol.io/specification
+  - https://owasp.org/www-project-top-10-for-large-language-model-applications/
+  - https://arxiv.org/abs/2504.03767
+logsource:
+  product: mcp
+  service: conversation_engine
+  category: llm_interaction
+detection:
+  selection_capability_questions:
+    prompt_text|contains:
+      - 'what can you do'
+      - 'list the tools you have'
+      - 'summarize your api surface'
+      - 'describe your capabilities'
+      - 'which integrations are enabled'
+      - 'what automations are available'
+      - 'enumerate your skills'
+      - 'show me every action you can perform'
+  selection_policy_interest:
+    prompt_text|contains:
+      - 'what policies restrict you'
+      - 'what are your guardrails'
+      - 'are there actions you refuse'
+      - 'describe your safety rules'
+  selection_privileged_focus:
+    prompt_text|contains:
+      - 'deploy_cluster'
+      - 'rotate_credentials'
+      - 'read_secret_store'
+      - 'database writer'
+      - 'cloud control'
+      - 'shell access'
+  selection_repeated_enumeration:
+    prompt_count_last_60s|gte: 3
+    prompt_text|contains:
+      - 'tool'
+      - 'capability'
+  filter_early_turns:
+    turn_index|lte: 3
+  filter_system_or_admin:
+    actor_type:
+      - assistant
+      - system
+    authenticated: true
+condition: (selection_capability_questions or selection_policy_interest or selection_privileged_focus or selection_repeated_enumeration) and filter_early_turns and not filter_system_or_admin
+falsepositives:
+  - Legitimate onboarding flows where trusted administrators review tool manifests
+  - Documentation or FAQ sessions explicitly explaining MCP capabilities to vetted users
+  - Automated health checks that query capability status via authenticated service accounts
+level: medium
+tags:
+  - attack.discovery
+  - attack.t1592
+  - safe.t1605
+  - mcp.capability_enumeration
+fields:
+  - timestamp
+  - prompt_text
+  - session_id
+  - actor_type
+  - turn_index
+  - authenticated
+  - prompt_count_last_60s

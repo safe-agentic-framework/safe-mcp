@@ -1,0 +1,224 @@
+title: MCP Tool Definition File Modification Detection
+id: 0f397773-638b-4eee-b3b8-20cf9d284573
+status: experimental
+description: |
+  Detects modifications to MCP tool definition files that may indicate persistent tool redefinition attacks.
+  This rule monitors for file operations on common MCP configuration paths and tool definition files.
+  IMPORTANT: This rule provides baseline detection only. Attackers may use novel storage locations
+  or obfuscation techniques. Deploy file integrity monitoring and behavioral analysis for comprehensive protection.
+author: SAFE-MCP Contributors
+date: 2025-12-16
+modified: 2025-12-16
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1205
+  - https://attack.mitre.org/techniques/T1546/
+  - https://attack.mitre.org/techniques/T1574/
+  - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
+logsource:
+  product: linux
+  service: auditd
+detection:
+  # File modification events on MCP configuration paths
+  selection_syscall:
+    type: 'SYSCALL'
+    syscall:
+      - 'openat'
+      - 'open'
+      - 'write'
+      - 'rename'
+      - 'unlink'
+      - 'creat'
+    success: 'yes'
+
+  selection_config_paths:
+    name|contains:
+      - '/etc/mcp/'
+      - '/opt/mcp/'
+      - '/var/lib/mcp/'
+      - '.mcp/'
+      - 'mcp-server/'
+      - 'mcp-tools/'
+      - 'tool-definitions/'
+      - 'tools.json'
+      - 'tools.yaml'
+      - 'tool-config'
+
+  selection_definition_files:
+    name|endswith:
+      - '.json'
+      - '.yaml'
+      - '.yml'
+      - '.toml'
+
+  # Detect suspicious modifications to MCP initialization scripts
+  selection_init_scripts:
+    name|contains:
+      - 'mcp-init'
+      - 'mcp-start'
+      - 'tool-loader'
+      - 'mcp-bootstrap'
+    name|endswith:
+      - '.sh'
+      - '.bash'
+      - '.py'
+
+  # Filter out legitimate administrative tools
+  filter_legitimate_processes:
+    exe|contains:
+      - '/usr/bin/mcp-admin'
+      - '/opt/mcp/bin/'
+      - '/usr/local/mcp/'
+      - 'mcp-cli'
+      - 'tool-manager'
+
+  # Filter package managers and deployment tools
+  filter_deployment:
+    exe|contains:
+      - '/usr/bin/apt'
+      - '/usr/bin/yum'
+      - '/usr/bin/dnf'
+      - '/usr/bin/pip'
+      - '/usr/bin/npm'
+      - 'ansible'
+      - 'puppet'
+      - 'chef-client'
+      - 'terraform'
+
+  condition: >
+    (selection_syscall and (selection_config_paths or selection_definition_files or selection_init_scripts))
+    and not (filter_legitimate_processes or filter_deployment)
+
+falsepositives:
+  - Legitimate tool updates by system administrators
+  - Automated deployment pipelines (CI/CD)
+  - Configuration management tools during scheduled updates
+  - MCP server upgrades and patches
+  - Container orchestration platform updates
+
+level: high
+
+tags:
+  - attack.persistence
+  - attack.t1546
+  - attack.t1546.004
+  - attack.t1574
+  - attack.t1543
+  - attack.t1505
+  - safe.t1205
+  - mcp.persistence
+
+fields:
+  - name
+  - exe
+  - auid
+  - uid
+  - gid
+  - key
+  - success
+
+---
+# Additional rule for database-backed tool registries
+title: MCP Tool Definition Database Modification
+id: 1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d
+status: experimental
+description: |
+  Detects SQL queries modifying MCP tool definition tables in database-backed registries.
+  Monitor for INSERT, UPDATE, DELETE operations on tool metadata tables.
+author: SAFE-MCP Contributors
+date: 2025-12-16
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1205
+logsource:
+  product: sql
+  service: database
+detection:
+  selection_modify_operations:
+    query|contains:
+      - 'INSERT INTO tool'
+      - 'UPDATE tool'
+      - 'DELETE FROM tool'
+      - 'INSERT INTO mcp_tool'
+      - 'UPDATE mcp_tool'
+      - 'ALTER TABLE tool'
+
+  selection_suspicious_content:
+    query|contains:
+      - 'handler_script'
+      - 'pre_execute'
+      - 'post_execute'
+      - '_internal'
+      - 'eval('
+      - 'exec('
+      - 'curl '
+      - 'wget '
+      - 'bash -c'
+      - '/bin/sh'
+
+  filter_maintenance_window:
+    timestamp|timeframe: '02:00-04:00'  # Adjust based on maintenance schedule
+
+  condition: selection_modify_operations and selection_suspicious_content and not filter_maintenance_window
+
+falsepositives:
+  - Scheduled database maintenance
+  - Legitimate tool updates during approved change windows
+  - Database migration scripts
+
+level: high
+
+tags:
+  - attack.persistence
+  - attack.t1505
+  - safe.t1205
+  - mcp.database
+
+---
+# Git repository monitoring for IaC deployments
+title: MCP Tool Configuration Repository Modification
+id: 2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e
+status: experimental
+description: |
+  Detects modifications to MCP tool configurations in Git repositories,
+  which may indicate supply chain or IaC-based persistent tool redefinition.
+author: SAFE-MCP Contributors
+date: 2025-12-16
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1205
+logsource:
+  product: git
+  service: webhook
+detection:
+  selection_config_files:
+    files_modified|contains:
+      - 'mcp/'
+      - 'tools/'
+      - 'tool-definitions/'
+    files_modified|endswith:
+      - '.json'
+      - '.yaml'
+      - '.yml'
+
+  selection_suspicious_branches:
+    branch|contains:
+      - 'hotfix'
+      - 'emergency'
+      - 'urgent'
+
+  selection_unauthorized_authors:
+    author_email|not|endswith:
+      - '@company.com'  # Adjust based on organization
+
+  condition: selection_config_files and (selection_suspicious_branches or selection_unauthorized_authors)
+
+falsepositives:
+  - Legitimate emergency patches
+  - External contributor submissions (for open source projects)
+  - Contractor access during approved periods
+
+level: medium
+
+tags:
+  - attack.persistence
+  - attack.t1195
+  - safe.t1205
+  - mcp.supply_chain

@@ -164,7 +164,9 @@ def main():
     detector = MCPEnumerationDetector()
     
     # Test with our sample log data
-    log_file = 'test-logs.json'
+    import os
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    log_file = os.path.join(script_dir, 'test-logs.json')
     results = detector.analyze_logs(log_file)
     
     if 'error' in results:

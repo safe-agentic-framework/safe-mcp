@@ -1,0 +1,37 @@
+title: Covert Channel Data Smuggling
+id: 91492581-67d7-4467-8478-f564782760d9
+status: experimental
+description: Detects high-entropy strings or suspicious encodings in tool parameters indicating data exfiltration.
+author: Vikranth Kumar Shivaa
+date: 2025-12-03
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1910
+logsource:
+  product: mcp
+  service: tool_execution
+detection:
+  selection_suspicious_patterns:
+    parameters|contains:
+      - 'base64'
+      - '=='
+      - 'data:image'
+      - 'data:application'
+  selection_high_entropy_simulation:
+    # Simplified regex for long continuous alphanumeric strings (simulating entropy check)
+    parameters|regex: '[a-zA-Z0-9+/]{20,}={0,2}'
+  condition: selection_suspicious_patterns or selection_high_entropy_simulation
+level: high
+tags:
+  - attack.exfiltration
+  - attack.t1048
+  - safe.t1910
+falsepositives:
+  - Legitimate upload of encoded file content (should be allowlisted by tool name).
+  - Cryptographic hashes or IDs in legitimate use.
+fields:
+  - timestamp
+  - service
+  - tool_name
+  - parameters
+  - user_id
+

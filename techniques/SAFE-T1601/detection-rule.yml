@@ -1,11 +1,10 @@
 title: MCP Server Enumeration Detection
-id: 7F86B74C-72E8-4AF4-BB45-E00B360B9E65
+id: 4623D4B7-E353-4022-98F3-0BF678B92D60
 status: experimental
 description: Detects potential enumeration of MCP servers and their capabilities through network scanning and protocol interactions
 author: SAFE-MCP Team
 date: 2025-08-17
 references:
-  - https://github.com/safe-mcp/techniques/SAFE-T1601
   - https://modelcontextprotocol.io/specification
   - https://invariantlabs.ai/blog/mcp-security-notification-tool-poisoning-attacks
 logsource:

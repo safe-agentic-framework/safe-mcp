@@ -1,0 +1,182 @@
+title: CSRF Token Relay Detection (SAFE-T1707)
+id: b8c9d0e1-f2a3-4b5c-9d0e-1f2a3b4c5d6e
+status: experimental
+description: |
+  Detects potential CSRF Token Relay behavior where a web/MCP application uses
+  a stored OAuth access token to perform unintended, state-changing operations
+  on different resources (projects/tenants) within the same resource server.
+  Focuses on CSRF patterns (missing CSRF tokens, suspicious Origin/Referer)
+  on high-risk endpoints that trigger OAuth-backed calls to multi-tenant APIs.
+author: Arjun Subedi (Astha.ai)
+date: 2025-11-29
+modified: 2025-11-29
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1707
+  - https://attack.mitre.org/techniques/T1550/001/
+  - https://attack.mitre.org/techniques/T1528/
+  - https://owasp.org/www-community/attacks/csrf
+  - https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html
+  - https://datatracker.ietf.org/doc/html/rfc6749
+  - https://www.cise.ufl.edu/~butler/pubs/dimva15.pdf
+logsource:
+  product: webapp
+  service: mcp_portal
+  category: application
+
+detection:
+  # Base selection: state-changing requests to sensitive endpoints
+  selection_base:
+    http.request.method:
+      - POST
+      - PUT
+      - PATCH
+      - DELETE
+    # Sensitive paths that trigger OAuth-backed multi-resource operations
+    # Customize these paths to match your application
+    http.request.path|contains:
+      - "/mcp/project/"
+      - "/mcp/tenant/"
+      - "/configureAgent"
+      - "/connectResource"
+      - "/setIamPolicy"
+      - "/grantRole"
+      - "/updateIamPolicy"
+      - "/rotateKeys"
+      - "/linkResource"
+
+  # Detection 1: Missing or invalid CSRF token
+  selection_missing_csrf:
+    # Option A: If app logs CSRF validation outcome
+    csrf.valid: false
+    # Option B: If app logs specific CSRF events
+    # security.event:
+    #   - "CSRF_TOKEN_MISSING"
+    #   - "CSRF_TOKEN_INVALID"
+    #   - "CSRF_VALIDATION_FAILED"
+
+  # Detection 2: Suspicious Origin header
+  # Requests from untrusted or unexpected origins
+  selection_suspicious_origin:
+    # Option A: Cross-origin requests from untrusted domains
+    http.request.headers.origin|startswith: "http"
+    # Option B: Missing Origin header on state-changing requests (suspicious)
+    # http.request.headers.origin: null
+    # Option C: Origin doesn't match expected application domain
+    # http.request.headers.origin|not_contains: "trusted-domain.com"
+
+  # Detection 3: Suspicious Referer header
+  selection_suspicious_referer:
+    # Option A: Referer from untrusted domain
+    http.request.headers.referer|startswith: "http"
+    http.request.headers.referer|not_contains: "trusted-domain.com"
+    # Option B: Missing Referer on state-changing requests
+    # http.request.headers.referer: null
+
+  # Detection 4: Multi-resource activity pattern
+  # Same session/user triggering operations on multiple resources
+  # Note: This requires time-series correlation, implement in SIEM
+  selection_multi_resource:
+    target.resource_id: "*"
+    # Pattern: Multiple distinct resource_ids from same session within time window
+    # Requires aggregation: count distinct resource_ids by session.id within 5 minutes
+
+  # Detection 5: Resource switch without UI context
+  # Request changes active resource without corresponding navigation event
+  selection_resource_switch:
+    target.resource_id: "*"
+    # Pattern: Resource change without corresponding UI event
+    # Requires correlation with front-end logs
+    ui.navigation_event: null
+
+  # Detection 6: Rapid resource escalation
+  # Multiple resources accessed in quick succession
+  selection_rapid_escalation:
+    target.resource_id: "*"
+    # Pattern: Access to multiple resources within short time window
+    # Requires time-series analysis
+    time_window: "<300"  # Within 5 minutes
+
+  # Detection 7: MCP tool invocation anomaly
+  # MCP tool called targeting unexpected resource via webhook/cross-origin
+  selection_mcp_anomaly:
+    mcp.tool.name: "*"
+    mcp.server.name: "*"
+    # Pattern: Tool invocation from unexpected source
+    request.source:
+      - "webhook"
+      - "cross_origin"
+      - "external_api"
+
+  condition: selection_base and (
+    selection_missing_csrf or
+    selection_suspicious_origin or
+    selection_suspicious_referer or
+    selection_multi_resource or
+    selection_resource_switch or
+    selection_rapid_escalation or
+    selection_mcp_anomaly
+  )
+
+fields:
+  - event.id
+  - event.timestamp
+  - user.id
+  - user.email
+  - user.name
+  - session.id
+  - source.ip
+  - source.geo.country
+  - http.request.method
+  - http.request.path
+  - http.request.url
+  - http.request.body
+  - http.request.headers.origin
+  - http.request.headers.referer
+  - http.request.headers.user_agent
+  - csrf.valid
+  - csrf.token
+  - security.event
+  - target.resource_id
+  - target.resource_type
+  - target.service
+  - auth.user_role
+  - oauth.token_id
+  - oauth.scope
+  - oauth.client_id
+  - mcp.server.name
+  - mcp.tool.name
+  - ui.navigation_event
+  - request.source
+
+falsepositives:
+  - >
+    Internal automation or bulk administrative operations legitimately
+    performing multiple project/tenant changes via the same session. Tune
+    by scoping to user-facing endpoints and normal maintenance windows.
+  - >
+    Environments where CSRF protection is not implemented but requests
+    are constrained by network segmentation or other compensating controls.
+    In such cases, consider this rule as a prompt to harden the application.
+  - >
+    Legitimate cross-origin integrations that use allowed Origins and
+    have their own CSRF protections. Maintain an allow-list of known-good
+    origins and paths.
+  - >
+    Legitimate API clients that perform bulk operations across multiple
+    resources as part of normal business workflows.
+  - >
+    Testing or staging environments where CSRF protections may be relaxed
+    for development purposes.
+
+level: high
+
+tags:
+  - attack.lateral_movement
+  - attack.t1550.001
+  - attack.t1528
+  - safe.t1707
+  - csrf
+  - oauth
+  - token_relay
+  - cross_resource_attack
+

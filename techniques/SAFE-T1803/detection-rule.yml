@@ -1,0 +1,75 @@
+id: 9d4e1e5b-8825-4cb0-9a7c-6d8322c5d21f
+name: SAFE-T1803 Database Dump via MCP SQL Tool
+description: >
+  Detects suspicious database dump activity initiated through MCP-exposed SQL tools,
+  including full-table SELECT queries, backup/dump commands, and unusually large result
+  sets against high-value tables.
+status: experimental
+
+log_sources:
+  - product: mcp
+    service: tool_invocation
+    definition: MCP host logs for tool calls and responses (including tool args and result metadata).
+  - product: database
+    service: query_audit
+    definition: Database audit logs capturing query text, execution context, and row counts.
+
+detection:
+  # Events from MCP host indicating a database-capable tool is being used.
+  mcp_sql_tool:
+    tool.name:
+      - "sql.query"
+      - "sql.execute"
+      - "db.query"
+      - "db.execute"
+      - "cloud-sql.query"
+      - "cloud-sql.execute"
+
+  # SQL patterns commonly associated with database dumps or bulk exports.
+  mcp_sql_suspicious_pattern:
+    tool.args.sql|contains:
+      - "SELECT * FROM"
+      - "pg_dump"
+      - "mysqldump"
+      - "BACKUP DATABASE"
+      - "EXPORT DATA"
+      - "COPY "
+      - " TO STDOUT"
+      - " INTO OUTFILE"
+
+  # Optional: high row-count or payload size returned to the LLM host.
+  mcp_large_result:
+    tool.result.row_count: ">=100000"      # tune threshold for your environment
+    # or use a size field if available:
+    # tool.result.size_bytes: ">=104857600"   # 100MB+
+
+  # Optional: database-side corroboration for the same service account.
+  db_full_table_scan:
+    db.log.user: "mcp_service_account"     # tune to your MCP DB account
+    db.log.query|contains:
+      - "SELECT * FROM"
+    db.log.estimated_rows: ">=100000"
+
+  timeframe: 5m
+
+  # Core condition: MCP SQL tool + (dump-like SQL OR unusually large results),
+  # optionally correlated with DB audit logs if available.
+  condition: >
+    mcp_sql_tool and
+    (
+      mcp_sql_suspicious_pattern
+      or mcp_large_result
+      or db_full_table_scan
+    )
+
+tags:
+  - attack.T1213
+  - attack.T1213.006
+  - attack.T1074
+  - attack.T1020
+  - safemcp.safe-t1803
+  - tactic.collection
+  - category.database
+  - category.data-dump
+  - product.mcp
+  - mcp.sql

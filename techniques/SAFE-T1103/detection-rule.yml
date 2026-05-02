@@ -1,0 +1,59 @@
+title: MCP Fake Tool Invocation Detection
+id: c6b5f97b-89e6-4f36-b5a9-9959a5550727
+status: experimental
+description: >
+  Detects potential fake or spoofed tool invocation in MCP (SAFE-T1103),
+  including suspicious tool-name keywords (admin/sudo/escalate/bypass) and
+  suspicious argument flags (bypass_acl, elevated, unrestricted). Pattern-only;
+  pair with a session-aware correlation rule that matches `tools/call` events
+  against prior `tools/list` registrations from the same `server_id` for full
+  coverage.
+author: SAFE-MCP Team
+date: 2026-04-25
+modified: 2026-04-25
+references:
+  - https://github.com/safe-agentic-framework/safe-mcp/tree/main/techniques/SAFE-T1103
+  - https://www.jsonrpc.org/specification
+  - https://cwe.mitre.org/data/definitions/345.html
+  - https://attack.mitre.org/techniques/T1565/
+  - https://attack.mitre.org/techniques/T1190/
+logsource:
+  product: mcp
+  service: tool_invocation
+detection:
+  selection_method:
+    event.action: 'tools/call'
+  selection_suspicious_tool_name:
+    tool.name|contains:
+      - 'admin'
+      - 'root'
+      - 'sudo'
+      - 'escalate'
+      - 'bypass'
+      - 'system_'
+      - 'shell'
+      - 'eval'
+      - 'session_escalate'
+  selection_suspicious_arguments:
+    tool.arguments|contains:
+      - 'bypass_acl'
+      - 'bypass_restrictions'
+      - 'elevated'
+      - 'unrestricted'
+      - 'sudo'
+  condition: selection_method and (selection_suspicious_tool_name or selection_suspicious_arguments)
+falsepositives:
+  - Legitimate administrative tools registered with admin-related names
+  - Internal CI/CD tooling that intentionally uses elevated arguments
+  - Authorized security testing
+level: high
+tags:
+  - attack.execution
+  - attack.t1565
+  - attack.t1190
+  - safe.t1103
+fields:
+  - tool.name
+  - tool.arguments
+  - server.id
+  - event.timestamp

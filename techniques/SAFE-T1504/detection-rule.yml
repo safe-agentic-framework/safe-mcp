@@ -1,0 +1,98 @@
+title: "SAFE-T1504 - Token Theft via API Response"
+id: "72591379-34f3-4e48-94fc-4206e0f128b8"
+status: experimental
+description: >
+  Detects suspicious use of MCP tools that return access or session tokens
+  (e.g. debug `session.token` tools) to the LLM, based on tool names and
+  token-like values in tool results. Field names are examples and MUST be
+  adapted to the local MCP logging schema.
+
+author: "SAFE-MCP Team"
+date: 2025/11/15
+references:
+  - "https://github.com/safe-mcp/techniques/SAFE-T1504"
+  - "https://modelcontextprotocol-security.io/ttps/data-exfiltration/token-theft/"
+  - "https://arxiv.org/abs/2504.03767"
+  - "https://docs.basehub.com/ai/mcp"
+  - "https://www.pillar.security/blog/the-security-risks-of-model-context-protocol-mcp"
+  - "https://www.legitsecurity.com/aspm-knowledge-base/model-context-protocol-security"
+  - "https://attack.mitre.org/techniques/T1528/"
+tags:
+  - "attack.credential-access"
+  - "attack.T1528"
+  - "attack.T1550.001"
+  - "safemcp.SAFE-T1504"
+  - "mcp"
+  - "oauth"
+
+logsource:
+  # Adjust these to match your environment (e.g., product: application, service: mcp-server)
+  product: mcp
+  service: tool_calls
+  category: application
+
+detection:
+  # 1) Tools that are likely to expose tokens
+  selection_sensitive_tool_name:
+    # Example field names; replace with your schema (e.g. mcp.tool.name)
+    tool_name|contains:
+      - "token"
+      - "access_token"
+      - "session.token"
+      - "session_token"
+      - "auth_token"
+      - "debug_token"
+      - "get_token"
+
+  selection_sensitive_tool_description:
+    # If descriptions are logged, they can also indicate risk
+    tool_description|contains:
+      - "access token"
+      - "session token"
+      - "oauth"
+      - "debug"
+      - "introspect"
+
+  # 2) Token-like values in tool results
+  selection_token_like_result:
+    # Example field; replace with whatever holds the serialized result
+    tool_result|re:
+      # Common patterns:
+      # - JWT-like strings (eyJ...header.payload.signature)
+      # - Long base64-style blobs (e.g. Google-style ya29.* tokens)
+      - "(?i)eyJ[a-zA-Z0-9_-]{10,}\\.[a-zA-Z0-9._-]{10,}\\.[a-zA-Z0-9._-]{10,}"
+      - "(?i)ya29\\.[0-9A-Za-z_-]{20,}"
+      - "[A-Za-z0-9_\\-]{32,}"
+
+  condition: (selection_sensitive_tool_name or selection_sensitive_tool_description) and selection_token_like_result
+
+fields:
+  # Recommended fields for triage (adapt to your schema)
+  - timestamp
+  - server_name
+  - client_id
+  - user_id
+  - tool_name
+  - tool_description
+  - tool_arguments
+  - tool_result
+  - session_id
+  - source_ip
+  - environment
+
+falsepositives:
+  - "Non-production environments where developers intentionally inspect tokens."
+  - "Security testing exercises where tokens are deliberately surfaced for validation."
+  - "Synthetic monitoring or integration tests that validate token handling logic."
+
+level: high
+
+# Implementation notes:
+# - This rule assumes you log MCP tool invocations with a clear tool name and some
+#   representation of the tool result. If your logs only include structured fields
+#   (e.g. result.access_token), consider adapting the rule to match on those fields
+#   directly rather than regex over serialized JSON.
+# - Consider pairing this rule with downstream analytics that look for:
+#   (a) Outbound HTTP tool calls to unknown domains shortly after a token-exposing tool call.
+#   (b) Upstream API activity using the suspected token from unusual clients or IPs.
+

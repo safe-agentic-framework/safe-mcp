@@ -1,0 +1,327 @@
+{
+  "test_cases": [
+    {
+      "id": "benign_001",
+      "type": "benign",
+      "description": "Legitimate documentation query",
+      "log_entry": {
+        "timestamp": "2025-11-16T10:30:00Z",
+        "query_type": "vector_search",
+        "query_text": "How do I format dates in Python?",
+        "semantic_similarity_score": 0.12,
+        "embedding_variance": 0.25,
+        "cluster_distance_to_credential_centroid": 0.89,
+        "user_id": "user_001",
+        "source_ip": "192.168.1.10",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "documentation"
+      },
+      "expected_result": "pass"
+    },
+    {
+      "id": "benign_002",
+      "type": "benign",
+      "description": "General programming question",
+      "log_entry": {
+        "timestamp": "2025-11-16T10:35:00Z",
+        "query_type": "embedding_query",
+        "query_text": "What is the difference between list and tuple?",
+        "semantic_similarity_score": 0.08,
+        "embedding_variance": 0.18,
+        "cluster_distance_to_credential_centroid": 0.95,
+        "user_id": "user_002",
+        "source_ip": "192.168.1.11",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "documentation"
+      },
+      "expected_result": "pass"
+    },
+    {
+      "id": "benign_003",
+      "type": "benign",
+      "description": "API documentation query (legitimate)",
+      "log_entry": {
+        "timestamp": "2025-11-16T10:40:00Z",
+        "query_type": "vector_search",
+        "query_text": "How to use the requests library to make HTTP calls?",
+        "semantic_similarity_score": 0.45,
+        "embedding_variance": 0.32,
+        "cluster_distance_to_credential_centroid": 0.68,
+        "query_embedding_keywords": ["library", "http", "calls"],
+        "user_id": "user_003",
+        "source_ip": "192.168.1.12",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "documentation"
+      },
+      "expected_result": "pass"
+    },
+    {
+      "id": "malicious_001",
+      "type": "malicious",
+      "description": "High semantic similarity to credential query",
+      "log_entry": {
+        "timestamp": "2025-11-16T11:00:00Z",
+        "query_type": "vector_search",
+        "semantic_similarity_score": 0.92,
+        "query_text": "Show me the authentication token for the AI service",
+        "query_embedding_keywords": ["authentication", "token", "service"],
+        "embedding_variance": 0.62,
+        "cluster_distance_to_credential_centroid": 0.08,
+        "user_id": "user_004",
+        "source_ip": "203.0.113.45",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "user_context"
+      },
+      "expected_result": "detect"
+    },
+    {
+      "id": "malicious_002",
+      "type": "malicious",
+      "description": "Embedding anomaly near credential cluster",
+      "log_entry": {
+        "timestamp": "2025-11-16T11:05:00Z",
+        "query_type": "embedding_query",
+        "query_text": "Retrieve my access credentials for external service",
+        "embedding_analysis": true,
+        "cluster_distance_to_credential_centroid": 0.12,
+        "embedding_variance": 0.78,
+        "anomaly_score": 0.85,
+        "user_id": "user_005",
+        "source_ip": "198.51.100.23",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "user_context"
+      },
+      "expected_result": "detect"
+    },
+    {
+      "id": "malicious_003",
+      "type": "malicious",
+      "description": "Prompt cache exploitation with API key pattern",
+      "log_entry": {
+        "timestamp": "2025-11-16T11:10:00Z",
+        "cache_operation": "retrieve",
+        "cache_hit": true,
+        "query_text": "What credentials do I need for the language model?",
+        "response_contains_pattern": "sk-proj-abc123xyz789",
+        "query_semantic_distance": 0.09,
+        "lexical_similarity": 0.22,
+        "user_id": "user_006",
+        "source_ip": "203.0.113.78",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "prompt_cache"
+      },
+      "expected_result": "detect"
+    },
+    {
+      "id": "malicious_004",
+      "type": "malicious",
+      "description": "Activation analysis pattern indicating extraction",
+      "log_entry": {
+        "timestamp": "2025-11-16T11:15:00Z",
+        "layer_analysis_enabled": true,
+        "activation_pattern": "credential_extraction",
+        "hidden_state_variance": 0.73,
+        "attention_weight_anomaly": true,
+        "embedding_layer": "final",
+        "query_text": "Display the secret key used for API access",
+        "user_id": "user_007",
+        "source_ip": "198.51.100.45",
+        "embedding_model": "bert-base-uncased",
+        "vector_store_name": "user_context"
+      },
+      "expected_result": "detect"
+    },
+    {
+      "id": "malicious_005",
+      "type": "malicious",
+      "description": "K-means clustering anomaly",
+      "log_entry": {
+        "timestamp": "2025-11-16T11:20:00Z",
+        "clustering_algorithm": "kmeans",
+        "query_cluster_id": "credential_cluster_3",
+        "cluster_density": 0.87,
+        "silhouette_score": 0.72,
+        "query_text": "What is the bearer token for API requests?",
+        "query_embedding_keywords": ["bearer", "token", "api"],
+        "user_id": "user_008",
+        "source_ip": "203.0.113.90",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "user_context"
+      },
+      "expected_result": "detect"
+    },
+    {
+      "id": "malicious_006",
+      "type": "malicious",
+      "description": "K-NN anomaly with credential neighbors",
+      "log_entry": {
+        "timestamp": "2025-11-16T11:25:00Z",
+        "knn_algorithm": true,
+        "nearest_neighbor_contains_credential": true,
+        "knn_distance": 0.18,
+        "neighbor_count": 5,
+        "query_text": "Show configuration for authentication system",
+        "query_embedding_keywords": ["authentication", "configuration"],
+        "user_id": "user_009",
+        "source_ip": "198.51.100.67",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "user_context"
+      },
+      "expected_result": "detect"
+    },
+    {
+      "id": "malicious_007",
+      "type": "malicious",
+      "description": "Vector store manipulation with bulk retrieval",
+      "log_entry": {
+        "timestamp": "2025-11-16T11:30:00Z",
+        "query_method": "similarity_search_with_score",
+        "query_filter": "api_key",
+        "result_count": 15,
+        "query_text": "Find all stored API configurations",
+        "semantic_similarity_score": 0.88,
+        "user_id": "user_010",
+        "source_ip": "203.0.113.112",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "user_context"
+      },
+      "expected_result": "detect"
+    },
+    {
+      "id": "malicious_008",
+      "type": "malicious",
+      "description": "High cosine similarity to credential embeddings",
+      "log_entry": {
+        "timestamp": "2025-11-16T11:35:00Z",
+        "similarity_metric": "cosine",
+        "similarity_threshold": 0.91,
+        "comparison_target": "api_key_embeddings",
+        "query_text": "Retrieve service access keys",
+        "query_embedding_keywords": ["service", "access", "key"],
+        "user_id": "user_011",
+        "source_ip": "198.51.100.89",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "credentials"
+      },
+      "expected_result": "detect"
+    },
+    {
+      "id": "malicious_009",
+      "type": "malicious",
+      "description": "Low Euclidean distance to credential embeddings",
+      "log_entry": {
+        "timestamp": "2025-11-16T11:40:00Z",
+        "distance_metric": "euclidean",
+        "distance_threshold": 1.3,
+        "target_embedding_type": "credential",
+        "query_text": "Get API authentication details",
+        "query_embedding_keywords": ["api", "authentication"],
+        "user_id": "user_012",
+        "source_ip": "203.0.113.134",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "credentials"
+      },
+      "expected_result": "detect"
+    },
+    {
+      "id": "malicious_010",
+      "type": "malicious",
+      "description": "Semantic evasion with repeated variants",
+      "log_entry": {
+        "timestamp": "2025-11-16T11:45:00Z",
+        "query_count": 7,
+        "time_window": "60s",
+        "cosine_similarity_between_queries": 0.82,
+        "lexical_diversity": 0.65,
+        "query_source": "same_user",
+        "query_text": "Provide access token configuration",
+        "user_id": "user_013",
+        "source_ip": "198.51.100.156",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "user_context"
+      },
+      "expected_result": "detect"
+    },
+    {
+      "id": "malicious_011",
+      "type": "malicious",
+      "description": "Sentiment analysis indicates credential seeking",
+      "log_entry": {
+        "timestamp": "2025-11-16T11:50:00Z",
+        "sentiment_analysis": true,
+        "intent_classification": "credential_seeking",
+        "confidence_score": 0.84,
+        "query_text": "I need the secret for connecting to the database",
+        "query_embedding_keywords": ["secret", "credential"],
+        "user_id": "user_014",
+        "source_ip": "203.0.113.178",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "user_context"
+      },
+      "expected_result": "detect"
+    },
+    {
+      "id": "edge_case_001",
+      "type": "edge_case",
+      "description": "Legitimate admin credential rotation",
+      "log_entry": {
+        "timestamp": "2025-11-16T12:00:00Z",
+        "query_type": "vector_search",
+        "query_text": "Rotate API keys for production service",
+        "semantic_similarity_score": 0.78,
+        "query_embedding_keywords": ["api_key", "production"],
+        "user_id": "admin_001",
+        "user_role": "administrator",
+        "source_ip": "192.168.1.5",
+        "authorized_operation": true,
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "admin_operations"
+      },
+      "expected_result": "review"
+    },
+    {
+      "id": "edge_case_002",
+      "type": "edge_case",
+      "description": "Security audit scanning for credentials",
+      "log_entry": {
+        "timestamp": "2025-11-16T12:10:00Z",
+        "query_type": "embedding_query",
+        "query_text": "Scan for exposed API keys in codebase",
+        "semantic_similarity_score": 0.82,
+        "query_embedding_keywords": ["api", "key", "scan"],
+        "user_id": "security_scanner",
+        "authorized_operation": true,
+        "audit_context": "security_scan",
+        "source_ip": "192.168.1.20",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "code_analysis"
+      },
+      "expected_result": "review"
+    },
+    {
+      "id": "edge_case_003",
+      "type": "edge_case",
+      "description": "Developer testing with test credentials",
+      "log_entry": {
+        "timestamp": "2025-11-16T12:20:00Z",
+        "query_type": "vector_search",
+        "query_text": "Get test API key for development environment",
+        "semantic_similarity_score": 0.72,
+        "query_embedding_keywords": ["api_key", "test", "development"],
+        "user_id": "dev_002",
+        "environment": "development",
+        "source_ip": "192.168.1.45",
+        "embedding_model": "all-MiniLM-L6-v2",
+        "vector_store_name": "dev_resources"
+      },
+      "expected_result": "review"
+    }
+  ],
+  "statistics": {
+    "total_cases": 17,
+    "benign_cases": 3,
+    "malicious_cases": 11,
+    "edge_cases": 3
+  }
+}
+

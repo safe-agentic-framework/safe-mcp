@@ -1,0 +1,74 @@
+title: Backdoored MCP Server Artifact Installation (Persistence via Cron/Autostart)
+id: df39820d-bef0-4bdb-af32-2831928fda78
+status: experimental
+description: |
+  Detects potential installation-time persistence behaviors consistent with a backdoored MCP server
+  artifact (package, container, binary). Signals include suspicious installer commands (cron/systemd),
+  writes to persistence locations, and unexpected outbound network activity during installation.
+author: Vikranth Kumar Shivaa
+date: 2025-12-11
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1203
+  - https://attack.mitre.org/techniques/T1195/
+  - https://attack.mitre.org/techniques/T1053/003/
+  - https://attack.mitre.org/techniques/T1547/
+logsource:
+  product: mcp
+  service: package_manager
+detection:
+  # Installer / lifecycle hooks invoking persistence mechanisms or common reverse-shell tooling.
+  # Source: MITRE ATT&CK persistence techniques and common package-manager abuse patterns.
+  selection_install_script_suspicious:
+    command_line:
+      - '*crontab*'
+      - '*/etc/cron*'
+      - '*/etc/crontab*'
+      - '*systemctl*enable*'
+      - '*systemctl*daemon-reload*'
+      - '*launchctl*'
+      - '*schtasks*'
+      - '*reg*add*Run*'
+      - '*authorized_keys*'
+      - '*curl *'
+      - '*wget *'
+      - '*nc *'
+      - '*ncat *'
+      - '*bash -c*'
+      - '*/dev/tcp/*'
+      - '*powershell* -enc*'
+
+  # File writes into common persistence locations.
+  selection_persistence_file_write:
+    file_path:
+      - '*/etc/cron*'
+      - '*/var/spool/cron*'
+      - '*/etc/systemd/system/*'
+      - '*/lib/systemd/system/*'
+      - '*/.config/autostart/*'
+      - '*/.ssh/authorized_keys*'
+      - '*\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\*'
+
+  # Outbound destinations during install (example-only; tune per environment).
+  selection_outbound_during_install:
+    network_destination:
+      - '*pastebin*'
+      - '*discord*'
+      - '*ngrok*'
+      - '*.onion*'
+
+  condition: selection_install_script_suspicious or selection_persistence_file_write or selection_outbound_during_install
+falsepositives:
+  - Legitimate installers that register scheduled tasks or enable services as part of normal setup
+  - Dev environments where package install scripts fetch dependencies over the network
+  - Configuration management tools that write to systemd/cron paths for legitimate automation
+level: high
+tags:
+  - attack.initial_access
+  - attack.persistence
+  - attack.t1195
+  - attack.t1053.003
+  - attack.t1547
+  - safe.t1203
+  - mcp
+  - supply_chain
+

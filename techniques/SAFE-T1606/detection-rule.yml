@@ -1,0 +1,44 @@
+title: Suspicious Directory Listing
+id: 9e5b2d7a-8c1f-4b5e-9a3d-1f2c3e4d5b6a
+status: experimental
+description: Detects attempts to list contents of sensitive system directories via MCP tools.
+author: Vikranth Kumar Shivaa
+date: 2025-11-26
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1606
+logsource:
+  product: mcp
+  service: tool_execution
+detection:
+  selection:
+    tool_name:
+      - 'list_directory'
+      - 'ls'
+      - 'dir'
+      - 'filesystem_list_directory'
+    parameters.path|contains:
+      - '/etc'
+      - '/root'
+      - 'C:\\Windows'
+      - 'C:\\Users\\Administrator'
+      - '.ssh'
+      - '.aws'
+      - '.env'
+  condition: selection
+level: medium
+tags:
+  - attack.discovery
+  - attack.t1083
+  - safe.t1606
+falsepositives:
+  - Legitimate listings within project workspace or temp directories
+  - CI/CD jobs enumerating build artifacts or dependencies
+  - IDE extensions scanning project folders for indexing
+  - OS/security tools performing routine system scans
+fields:
+  - timestamp
+  - service
+  - tool_name
+  - parameters.path
+  - user_id
+

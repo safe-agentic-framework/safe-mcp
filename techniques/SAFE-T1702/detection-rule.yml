@@ -1,0 +1,46 @@
+title: Shared-Memory Poisoning Detection
+id: D0101B15-ECF5-468A-ACA5-E35EECBEF217
+status: experimental
+description: Detects potential shared-memory poisoning attempts by identifying high-risk instructional keywords, context-switching tokens, and suspicious encoding patterns in memory storage operations.
+author: Vikranth Kumar Shivaa
+date: 2025-12-04
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1702
+logsource:
+  product: mcp
+  service: tool_execution
+detection:
+  selection_tool:
+    tool_name|contains:
+      - 'save_memory'
+      - 'add_embedding'
+      - 'store_knowledge'
+      - 'upsert_vector'
+  selection_keywords:
+    parameters|contains:
+      - 'System Override'
+      - 'Ignore previous instructions'
+      - 'Urgent Task'
+      - 'IMPORTANT:'
+      - '[SYSTEM]'
+      - 'sudo'
+      - 'admin'
+      - 'IMPERATIVE:'
+  selection_suspicious_encoding:
+    parameters|contains:
+      - 'base64'
+      - 'data:image'
+      - 'data:application'
+      - '=='
+  condition: selection_tool and (selection_keywords or selection_suspicious_encoding)
+falsepositives:
+  - Legitimate administrative notes containing these keywords.
+  - System logs being saved to memory for analysis.
+  - Legitimate storage of encoded file attachments or images.
+  - Developer tools saving prompt templates or test cases.
+  - Automated backup processes dumping database content.
+level: high
+tags:
+  - attack.lateral_movement
+  - attack.t1565
+  - safe.t1702

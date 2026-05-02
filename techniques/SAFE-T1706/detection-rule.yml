@@ -1,0 +1,189 @@
+title: OAuth Token Pivot Replay Detection (SAFE-T1706)
+id: a7b8c9d0-e1f2-4a5b-8c9d-0e1f2a3b4c5d
+status: experimental
+description: |
+  Detects potential cross-service replay of OAuth/JWT access tokens across MCP-connected
+  services. This rule identifies cases where the same token identifier is observed at multiple
+  resource servers, where JWT audience claims do not match the service being accessed, or
+  where tokens exhibit impossible travel patterns indicating theft and replay.
+author: Arjun Subedi (Astha.ai)
+date: 2025-11-28
+modified: 2025-11-28
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1706
+  - https://attack.mitre.org/techniques/T1078/
+  - https://attack.mitre.org/techniques/T1134/
+  - https://www.ietf.org/archive/id/draft-ietf-oauth-security-topics-16.html
+  - https://www.pingidentity.com/en/resources/blog/post/oauth-2-access-token-usage-strategies-multiple-resources-apis-pt-3.html
+  - https://workos.com/blog/oauth-common-attacks-and-how-to-prevent-them
+  - https://mas.owasp.org/MASTG/0x04e-Testing-Authentication-and-Session-Management/
+logsource:
+  product: mcp
+  service: oauth
+  category: authentication
+
+detection:
+  # Base selection: successful OAuth/JWT token authentication
+  selection_base:
+    event.category: authentication
+    event.outcome: success
+    oauth.token_type|contains:
+      - access_token
+      - bearer_token
+
+  # Detection 1: Cross-service token reuse by token identifier (jti)
+  # Detects when the same token ID appears across multiple distinct services
+  selection_cross_service_token:
+    # Option A: If enrichment sets a flag
+    auth.token.reuse_across_services: true
+    # Option B: Direct pattern matching (requires aggregation)
+    # Same token_id/jti used with different service.name values
+
+  # Detection 2: Audience claim mismatch
+  # Detects when JWT audience claim doesn't match the target service
+  selection_audience_mismatch:
+    # Option A: If enrichment compares jwt.aud to service
+    jwt.aud_not_matching_service: true
+    # Option B: Direct field comparison (adjust field names to your schema)
+    # jwt.aud: '*'
+    # target.service: '*'
+    # condition: jwt.aud != target.service
+
+  # Detection 3: Impossible travel pattern
+  # Same token used from geographically distant locations within short timeframe
+  selection_impossible_travel:
+    # Option A: If enrichment detects impossible travel
+    auth.token.impossible_travel: true
+    # Option B: Pattern matching (requires time-series analysis)
+    # Same token_id with source.geo.country changes > threshold distance
+    # within time window < threshold (e.g., < 1 hour)
+
+  # Detection 4: Unusual scope/resource combinations
+  # Token with scopes for one application accessing different application's API
+  selection_scope_mismatch:
+    jwt.scope|contains:
+      - 'read:project'
+      - 'write:project'
+    http.request.path|contains:
+      - '/api/billing'
+      - '/api/payment'
+      - '/api/secrets'
+    # Or vice versa - billing scopes accessing project APIs
+    jwt.scope|contains:
+      - 'read:billing'
+      - 'write:billing'
+    http.request.path|contains:
+      - '/api/project'
+      - '/api/task'
+
+  # Detection 5: Rapid service escalation
+  # Token used to access low-privilege service, then rapidly escalates to high-privilege service
+  selection_rapid_escalation:
+    # Requires time-series correlation
+    # First access: low-privilege service (e.g., /api/project)
+    # Within short window: high-privilege service (e.g., /api/secrets, /api/admin)
+    time_window: '<300'  # Within 5 minutes
+    service_privilege_level: escalated
+
+  # Detection 6: Token from unexpected client
+  # Token issued for one OAuth client used by different client
+  selection_client_mismatch:
+    jwt.client_id: '*'
+    oauth.client_id: '*'
+    # Condition: jwt.client_id != oauth.client_id
+
+  # Detection 7: Generic audience values
+  # Tokens with overly broad or missing audience claims
+  selection_generic_audience:
+    jwt.aud|contains:
+      - 'https://api.example.com'
+      - 'https://api.internal'
+      - '*'
+      - 'api'
+    # Or missing aud claim entirely
+    jwt.aud|endswith: null
+
+  # Detection 8: MCP tool behavior anomaly
+  # MCP agent using one tool to obtain tokens, then rapidly invoking different tools
+  selection_mcp_tool_anomaly:
+    mcp.tool.name: '*'
+    mcp.server.name: '*'
+    # Pattern: tool A (token source) -> rapid -> tool B (different service)
+    tool_sequence_time: '<60'  # Within 1 minute
+    tool_service_change: true
+
+  condition: selection_base and (
+    selection_cross_service_token or
+    selection_audience_mismatch or
+    selection_impossible_travel or
+    selection_scope_mismatch or
+    selection_rapid_escalation or
+    selection_client_mismatch or
+    selection_generic_audience or
+    selection_mcp_tool_anomaly
+  )
+
+fields:
+  - event.id
+  - event.timestamp
+  - mcp.server.name
+  - mcp.tool.name
+  - user.id
+  - user.email
+  - user.name
+  - oauth.client_id
+  - oauth.token_id
+  - oauth.token_type
+  - jwt.iss
+  - jwt.aud
+  - jwt.sub
+  - jwt.jti
+  - jwt.scope
+  - jwt.exp
+  - source.ip
+  - source.geo.country
+  - source.geo.city
+  - user_agent.original
+  - http.request.method
+  - http.request.path
+  - http.request.url
+  - target.service
+  - target.resource
+  - auth.token.reuse_across_services
+  - auth.token.impossible_travel
+  - jwt.aud_not_matching_service
+
+falsepositives:
+  - >
+    Legitimate multi-service tokens intentionally issued with shared audiences
+    and enforced by a central API gateway. Maintain an allow-list of expected
+    audience-to-service relationships and known multi-service token patterns.
+  - >
+    Testing or staging environments that reuse static tokens across multiple
+    APIs during development and integration testing.
+  - >
+    Service mesh or API gateway architectures where a single upstream token is
+    intentionally forwarded to multiple backend services on behalf of the same
+    logical API or microservice cluster.
+  - >
+    Legitimate users accessing services from multiple locations during travel
+    or remote work scenarios, especially with VPN usage.
+  - >
+    Mobile applications or background services with legitimate token refresh
+    mechanisms that may appear as cross-service usage.
+  - >
+    OAuth clients configured with legitimate broad scopes for administrative
+    or service account purposes.
+
+level: high
+
+tags:
+  - attack.lateral_movement
+  - attack.t1078
+  - attack.t1134
+  - safe.t1706
+  - oauth
+  - jwt
+  - token_replay
+  - cross_service_attack
+

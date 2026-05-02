@@ -1,0 +1,43 @@
+title: High-Privilege Tool Abuse
+id: 1A20BBC7-3491-4028-8960-813CA5AB5ABF
+status: experimental
+description: Detects MCP tools executing privileged commands or accessing root-level paths.
+author: Vikranth Kumar Shivaa
+date: 2025-12-08
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1302
+logsource:
+  product: mcp
+  service: tool_execution
+detection:
+  selection_tools:
+    tool_name:
+      - 'execute_command'
+      - 'run_shell'
+      - 'docker_run'
+      - 'sys_admin'
+  selection_args:
+    parameters.args|contains:
+      - 'sudo'
+      - 'su -'
+      - 'chmod +s'
+      - 'chown root'
+      - 'chroot'
+      - '--privileged'
+      - '-v /:/'
+      - '/etc/shadow'
+      - '/etc/sudoers'
+  condition: selection_tools and selection_args
+level: critical
+tags:
+  - attack.privilege_escalation
+  - attack.t1548
+  - safe.t1302
+falsepositives:
+  - Legitimate automated system maintenance tasks (should be allowlisted by tool name/user)
+fields:
+  - timestamp
+  - service
+  - tool_name
+  - parameters.args
+  - user_id

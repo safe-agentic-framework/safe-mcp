@@ -1,0 +1,179 @@
+title: System Prompt Disclosure Detection
+id: a7f2c4d8-1e3b-4f9a-b2c5-8d7e9f1a2b3c
+status: experimental
+description: |
+  Detects attempts to extract system prompts and security policies from MCP-enabled AI agents.
+  Uses guard model classification, behavioral pattern analysis, and attention tracking to identify
+  both direct extraction attempts and sophisticated multi-turn attacks exploiting LLM sycophancy.
+  Research shows multi-turn attacks achieve 86.2% success rate, reduced to 5.3% with these defenses.
+  Based on research: arXiv:2404.16251, arXiv:2509.21884, arXiv:2507.07974
+author: SAFE-MCP Team
+date: 2025-12-24
+modified: 2025-12-24
+references:
+  - https://github.com/anthropics/safe-mcp/techniques/SAFE-T1603
+  - https://arxiv.org/abs/2404.16251
+  - https://arxiv.org/abs/2509.21884
+  - https://arxiv.org/abs/2507.07974
+  - https://arxiv.org/abs/2410.22284
+  - https://aclanthology.org/2025.findings-naacl.123.pdf
+logsource:
+  product: mcp
+  service: conversation_logs
+  category: prompt_security
+
+detection:
+  # Direct prompt extraction attempts
+  selection_direct_extraction:
+    user_input|contains:
+      - 'system prompt'
+      - 'original instructions'
+      - 'what are you instructed'
+      - 'repeat your instructions'
+      - 'ignore previous instructions'
+      - 'what were your instructions'
+      - 'show me your prompt'
+      - 'print your system prompt'
+      - '<system>'
+      - '</system>'
+      - 'initialization prompt'
+      - 'base prompt'
+
+  # Meta-questions about AI configuration
+  selection_meta_questions:
+    user_input|contains:
+      - 'what are your restrictions'
+      - 'what can you not do'
+      - 'what are you forbidden'
+      - 'what directories are blocked'
+      - 'what commands are prevented'
+      - 'security rules'
+      - 'safety guidelines'
+      - 'what are your limitations'
+      - 'configuration settings'
+      - 'internal rules'
+
+  # Social engineering patterns (debugging/admin pretense)
+  selection_social_engineering:
+    user_input|contains:
+      - 'compliance documentation'
+      - 'audit purposes'
+      - 'system administrator'
+      - 'for debugging'
+      - 'troubleshooting purposes'
+      - 'security review'
+      - 'need to document'
+      - 'regulatory compliance'
+
+  # Behavioral: Multi-turn extraction attempts
+  selection_behavioral_multiturn:
+    meta_question_count: '>3'
+    time_window: '600s'  # Within 10 minutes
+    conversation_topic_shift: 'instructions'
+    user_session: 'same'
+
+  # Guard model classification (if available)
+  selection_guard_model:
+    guard_model_classification: 'malicious'
+    guard_model_confidence: '>0.85'
+    guard_model_category:
+      - 'prompt_injection'
+      - 'jailbreak'
+      - 'system_extraction'
+
+  # Embedding-based semantic similarity to extraction attempts
+  selection_semantic_extraction:
+    semantic_similarity_to_extraction_pattern: '>0.85'
+    embedding_analysis: true
+    intent_classification:
+      - 'instruction_extraction'
+      - 'configuration_discovery'
+      - 'policy_enumeration'
+    confidence_score: '>0.80'
+
+  # Attention distraction patterns (if internal metrics available)
+  selection_attention_anomaly:
+    attention_tracking_enabled: true
+    attention_to_system_prompt: '<0.30'  # Low attention to original instructions
+    attention_to_user_input: '>0.70'      # High attention to user input
+    attention_shift_detected: true
+
+  # Perplexity-based anomaly detection
+  selection_perplexity_anomaly:
+    token_perplexity_analysis: true
+    mean_perplexity: '>15.0'  # Higher than normal queries
+    perplexity_variance: '>8.0'
+    unusual_token_pattern: true
+
+  # Iterative probing (multiple similar queries)
+  selection_iterative_probing:
+    query_count: '>5'
+    time_window: '300s'  # Within 5 minutes
+    cosine_similarity_between_queries: '>0.75'  # Queries similar to each other
+    lexical_diversity: '>0.40'  # But using different words
+    query_source: 'same_user'
+
+  # Trust-building followed by extraction (sycophancy exploitation)
+  selection_sycophancy_exploitation:
+    conversation_turns: '>3'
+    initial_sentiment: 'positive'  # Starts with praise/agreement
+    later_meta_questions: '>2'
+    sentiment_shift: 'neutral_to_extractive'
+    time_between_turns: '<120s'
+
+  # Jailbreak combined with extraction
+  selection_jailbreak_extraction:
+    user_input|contains:
+      - 'DAN mode'
+      - 'developer mode'
+      - 'unrestricted mode'
+      - 'bypass restrictions'
+      - 'ignore safety'
+    query_also_contains_extraction: true
+
+  condition:
+    selection_direct_extraction or
+    selection_meta_questions or
+    (selection_social_engineering and selection_behavioral_multiturn) or
+    selection_guard_model or
+    selection_semantic_extraction or
+    selection_attention_anomaly or
+    (selection_perplexity_anomaly and selection_iterative_probing) or
+    selection_sycophancy_exploitation or
+    selection_jailbreak_extraction
+
+falsepositives:
+  - Legitimate debugging by authorized system administrators
+  - Educational discussions about AI architecture and design
+  - Users asking general questions about AI capabilities (not specific rules)
+  - AI safety research and academic studies
+  - Authorized security audits and penetration testing
+  - Documentation writers creating AI usage guides
+  - New users asking about system limitations out of curiosity
+
+level: medium
+
+tags:
+  - attack.discovery
+  - attack.t1592
+  - attack.t1082
+  - safe.t1603
+  - prompt.security
+  - system.disclosure
+  - multi.turn.attack
+
+fields:
+  - user_input
+  - user_id
+  - session_id
+  - timestamp
+  - meta_question_count
+  - guard_model_classification
+  - guard_model_confidence
+  - semantic_similarity_to_extraction_pattern
+  - attention_to_system_prompt
+  - attention_to_user_input
+  - conversation_turns
+  - source_ip
+  - embedding_model
+  - intent_classification

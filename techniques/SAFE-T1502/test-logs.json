@@ -1,0 +1,164 @@
+[
+  {
+    "timestamp": "2025-11-14T09:00:00Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "read_file",
+    "file_path": "README.md",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "Legitimate documentation access",
+    "expected_detection": false
+  },
+  {
+    "timestamp": "2025-11-14T09:01:10Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "read_file",
+    "file_path": "/home/user/.ssh/id_rsa",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "SSH private key access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:02:20Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "file_reader",
+    "file_path": "/home/user/.ssh/id_ed25519",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "SSH ed25519 private key access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:03:30Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "read_text_file",
+    "file_path": "/home/user/.aws/credentials",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "AWS credentials file access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:04:45Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "file_reader",
+    "file_path": "/home/user/.gcloud/application_default_credentials.json",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "GCP ADC credentials access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:05:55Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "read_file",
+    "file_path": "/home/user/.azure/accessTokens.json",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "Azure access tokens file access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:07:05Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "read_file",
+    "file_path": "/home/user/.docker/config.json",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "Docker auth config access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:08:15Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "read_file",
+    "file_path": "/home/user/.kube/config",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "Kubernetes config access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:09:25Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "file_reader",
+    "file_path": "/home/user/.git-credentials",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "Git credential helper file access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:10:35Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "file_reader",
+    "file_path": "/home/user/.netrc",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "Netrc credentials access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:11:45Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "get_file_contents",
+    "file_path": "/home/user/.npmrc",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "NPM token file access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:12:55Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "read_file",
+    "file_path": "/home/user/.pypirc",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "PyPI credentials file access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:14:05Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "file_reader",
+    "file_path": "/home/user/.gem/credentials",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "RubyGems credentials file access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:15:15Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "read_file",
+    "file_path": "serviceAccount.json",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "Service account credentials access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:16:25Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "read_file",
+    "file_path": "terraform.rc",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "Terraform credential rc access - should trigger detection",
+    "expected_detection": true
+  },
+  {
+    "timestamp": "2025-11-14T09:17:35Z",
+    "event_type": "mcp_tool_invocation",
+    "tool_name": "read_file",
+    "file_path": "src/app.js",
+    "user": "ai_assistant",
+    "result": "success",
+    "description": "Legitimate source file access",
+    "expected_detection": false
+  }
+]
+
+

@@ -13,6 +13,7 @@ Output Context Isolation uses special delimiters or structured formatting (such 
 ## Mitigates
 - [SAFE-T1102](../../techniques/SAFE-T1102/README.md): Prompt Injection (Multiple Vectors)
 - [SAFE-T1103](../../techniques/SAFE-T1103/README.md): Indirect Prompt Injection
+- [SAFE-T1112](../../techniques/SAFE-T1112/README.md): Sampling Request Abuse — nested `sampling/createMessage` output must be held logically separate from planner state until reviewed, logged, and policy-checked, so a malicious server's sampling response cannot directly seed subsequent reasoning
 
 ## Technical Implementation
 [TO BE COMPLETED]

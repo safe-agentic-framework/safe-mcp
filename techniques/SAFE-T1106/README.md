@@ -44,6 +44,201 @@ This is conceptually related to application/protocol loop DoS, where two compone
 }
 ```
 
+### Beginner-Friendly Examples
+
+The following examples help beginners understand how autonomous loops work and how to detect them in practice.
+
+#### Example 1: Simple Loop Detection
+
+This Python example demonstrates how to detect when an agent is stuck in a loop by tracking repeated identical tool calls:
+
+```python
+from collections import defaultdict
+from typing import Dict, List, Tuple
+import hashlib
+import json
+
+class LoopDetector:
+    """Simple detector for autonomous loops in MCP tool invocations"""
+    
+    def __init__(self, max_repeats: int = 10, time_window_seconds: int = 300):
+        self.max_repeats = max_repeats
+        self.time_window = time_window_seconds
+        self.call_history: Dict[str, List[Tuple[int, str]]] = defaultdict(list)
+    
+    def _generate_call_hash(self, tool_name: str, args: dict) -> str:
+        """Create a unique hash for a tool call based on name and arguments
+        
+        Note: MD5 is used here for non-cryptographic purposes (content identification).
+        For security-sensitive applications, use SHA-256 or another secure hash function.
+        """
+        call_signature = json.dumps({"tool": tool_name, "args": args}, sort_keys=True)
+        return hashlib.md5(call_signature.encode()).hexdigest()
+    
+    def record_call(self, session_id: str, tool_name: str, args: dict, timestamp: int):
+        """Record a tool call and check if it indicates a loop"""
+        call_hash = self._generate_call_hash(tool_name, args)
+        key = f"{session_id}:{call_hash}"
+        
+        # Add timestamp to history
+        self.call_history[key].append(timestamp)
+        
+        # Remove old entries outside time window
+        cutoff = timestamp - self.time_window
+        self.call_history[key] = [t for t in self.call_history[key] if t > cutoff]
+        
+        # Check if we've exceeded the repeat threshold
+        if len(self.call_history[key]) >= self.max_repeats:
+            return {
+                "is_loop": True,
+                "session_id": session_id,
+                "tool_name": tool_name,
+                "repeat_count": len(self.call_history[key]),
+                "call_hash": call_hash
+            }
+        
+        return {"is_loop": False}
+
+# Example usage
+detector = LoopDetector(max_repeats=5, time_window_seconds=60)
+
+# Simulate repeated identical calls (potential loop)
+for i in range(6):
+    result = detector.record_call(
+        session_id="session_123",
+        tool_name="http.get",
+        args={"url": "https://api.example.com/health"},
+        timestamp=1000 + i * 10
+    )
+    if result["is_loop"]:
+        print(f"⚠️  Loop detected! Tool '{result['tool_name']}' called {result['repeat_count']} times")
+        break
+```
+
+#### Example 2: Basic Loop Prevention
+
+This example shows a simple way to prevent loops by adding iteration limits and convergence checks:
+
+```python
+class SafeAgentExecutor:
+    """Agent executor with basic loop prevention"""
+    
+    def __init__(self, max_iterations: int = 50, convergence_threshold: float = 0.01):
+        self.max_iterations = max_iterations
+        self.convergence_threshold = convergence_threshold
+        self.iteration_count = 0
+        self.previous_results = []
+    
+    def execute_with_guardrails(self, tool_call_func, *args, **kwargs):
+        """Execute a tool call with loop prevention guardrails"""
+        if self.iteration_count >= self.max_iterations:
+            raise RuntimeError(f"Maximum iterations ({self.max_iterations}) exceeded. Possible loop detected.")
+        
+        result = tool_call_func(*args, **kwargs)
+        self.iteration_count += 1
+        
+        # Simple convergence check: stop if result hasn't changed significantly
+        if len(self.previous_results) > 0:
+            if self._is_converged(result, self.previous_results[-1]):
+                return result
+        
+        self.previous_results.append(result)
+        return result
+    
+    def _is_converged(self, current: dict, previous: dict) -> bool:
+        """Check if the result has converged (stopped changing)"""
+        # Simple check: compare result values
+        if current.get("status") == previous.get("status"):
+            return True
+        return False
+    
+    def reset(self):
+        """Reset the executor state"""
+        self.iteration_count = 0
+        self.previous_results = []
+
+# Example usage
+def check_service_health():
+    """Simulated service health check"""
+    return {"status": "warming_up", "message": "Service is starting..."}
+
+executor = SafeAgentExecutor(max_iterations=10)
+
+try:
+    for i in range(15):  # Try more than max_iterations
+        result = executor.execute_with_guardrails(check_service_health)
+        print(f"Iteration {i+1}: {result}")
+except RuntimeError as e:
+    print(f"🛑 Guardrail triggered: {e}")
+```
+
+#### Example 3: Recognizing Loop Patterns in Logs
+
+This example shows how to identify loop patterns from log entries:
+
+```python
+import re
+from collections import Counter
+from typing import List
+
+def analyze_logs_for_loops(log_entries: List[str]) -> dict:
+    """Analyze log entries to detect potential autonomous loops"""
+    
+    # Patterns that suggest non-convergence
+    loop_indicators = [
+        r"retry",
+        r"try again",
+        r"almost ready",
+        r"warming up",
+        r"in progress",
+        r"checking\.\.\."
+    ]
+    
+    # Count tool call patterns
+    tool_call_pattern = r'tool["\']?\s*:\s*["\']([^"\']+)["\']'
+    tool_calls = []
+    
+    for entry in log_entries:
+        # Check for loop indicator phrases
+        for pattern in loop_indicators:
+            if re.search(pattern, entry, re.IGNORECASE):
+                # Extract tool name if present
+                match = re.search(tool_call_pattern, entry)
+                if match:
+                    tool_calls.append(match.group(1))
+    
+    # Analyze frequency
+    tool_counter = Counter(tool_calls)
+    suspicious_tools = {tool: count for tool, count in tool_counter.items() if count >= 5}
+    
+    return {
+        "total_loop_indicators": len(tool_calls),
+        "suspicious_tools": suspicious_tools,
+        "is_likely_loop": len(suspicious_tools) > 0
+    }
+
+# Example log entries
+sample_logs = [
+    '{"tool": "http.get", "status": "warming_up", "message": "retry in 5s"}',
+    '{"tool": "http.get", "status": "warming_up", "message": "almost ready"}',
+    '{"tool": "http.get", "status": "warming_up", "message": "try again"}',
+    '{"tool": "http.get", "status": "warming_up", "message": "retry in 5s"}',
+    '{"tool": "http.get", "status": "warming_up", "message": "checking..."}',
+]
+
+analysis = analyze_logs_for_loops(sample_logs)
+if analysis["is_likely_loop"]:
+    print("⚠️  Potential loop detected!")
+    print(f"   Suspicious tool calls: {analysis['suspicious_tools']}")
+```
+
+These examples demonstrate:
+- **Detection**: How to identify when an agent is stuck in a loop
+- **Prevention**: Basic guardrails to stop loops before they cause damage
+- **Analysis**: How to recognize loop patterns in system logs
+
+For production systems, combine these approaches with the more sophisticated mitigations listed in the [Mitigation Strategies](#mitigation-strategies) section.
+
 ### Advanced Attack Techniques
 - Loop amplification via parallel subtasks re-queuing on partial failure
 - Cross-agent cycles where delegation returns to originator after minor mutation
@@ -149,5 +344,6 @@ tags:
 | Version | Date       | Changes               | Author           |
 |---------|------------|-----------------------|------------------|
 | 1.0     | 2025-08-10 | Initial documentation | Sunil Dhakal |
+| 1.1     | 2025-11-16 | Added beginner-friendly examples section with practical code demonstrations for loop detection, prevention, and log analysis | Satbir Singh |
 
 

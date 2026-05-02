@@ -1,0 +1,63 @@
+title: Steganographic Exfiltration via AI Code Blocks (SAFE-T1912)
+id: 8f1c9ab0-4e3a-4c89-bf4a-7ce99212c4dd
+status: experimental
+description: >
+  Detects attempts to hide/exfiltrate data inside AI-generated code blocks,
+  especially when the content does not match the declared language, contains
+  high-entropy strings, or includes unusual markers typical of covert channels.
+author: Rajiv Shrestha
+date: 2025-11-26
+references:
+  - https://modelcontextprotocol.io/specification
+  - https://owasp.org/www-project-top-10-for-large-language-model-applications/
+  - https://attack.mitre.org/techniques/T1041/
+
+logsource:
+  product: mcp
+  service: response_generator
+
+detection:
+
+  suspicious_language_mismatch:
+    ai.response.code_block.language:
+      - "json"
+      - "python"
+      - "text"
+      - "bash"
+    ai.response.code_block.content|contains:
+      - "<?xml"
+      - "BEGIN RSA"
+      - "-----BEGIN"
+      - "ZW5jb2Rl"        # base64 fragments
+      - "aHR0c"           # url-encoded payloads
+
+  high_entropy_block:
+    ai.response.code_block.entropy: 
+      - ">7.0"            # Very high entropy content
+
+  unusual_volume:
+    ai.response.code_block.length: 
+      - ">5000"           # Abnormally large code blocks for simple requests
+
+  suspicious_markers:
+    ai.response.code_block.content|contains:
+      - "###---"
+      - "[[DATA]]"
+      - "<!--payload-->"
+      - "/*hidden*/"
+      - "#exfil"
+      - "stego"
+
+  condition: suspicious_language_mismatch OR high_entropy_block OR unusual_volume OR suspicious_markers
+
+falsepositives:
+  - Long configuration files legitimately provided to the user
+  - Binary-like encoded blobs for valid machine learning data
+  - Legitimate Base64 used in documentation examples
+
+level: high
+
+tags:
+  - attack.exfiltration
+  - attack.T1041
+  - safe.t1912

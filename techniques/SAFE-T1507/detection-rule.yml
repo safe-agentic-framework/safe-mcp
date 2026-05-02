@@ -1,0 +1,50 @@
+title: MCP OAuth Authorization Code Interception Detection
+id: 2aa0f9c2-f9b0-4b20-96e8-e2325f215491
+status: experimental
+description: Detects potential authorization code interception through duplicate token exchange attempts, sub-second token-endpoint races, or authorization codes appearing in HTTP Referer headers
+author: SAFE-MCP Team
+date: 2025-01-20
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/tree/main/techniques/SAFE-T1507
+  - https://datatracker.ietf.org/doc/html/rfc6749
+  - https://datatracker.ietf.org/doc/html/rfc6819
+  - https://datatracker.ietf.org/doc/html/rfc7636
+  - https://datatracker.ietf.org/doc/html/rfc9700
+logsource:
+  product: mcp
+  service: oauth_token_exchange
+detection:
+  # Note: selection_duplicate_code and selection_race_condition express
+  # correlation/windowing semantics that are not native to a single Sigma rule;
+  # SIEMs must implement them via Sigma v2 correlation rules or equivalent
+  # stateful logic keyed on `authorization_code`.
+  selection_duplicate_code:
+    authorization_code|count|gt: 1
+    timeframe: 5s
+  selection_race_condition:
+    token_exchange_timestamp:
+      - '|difference|lt: 1s'
+    same_authorization_code: true
+    different_source_ip: true
+  # Note: selection_code_in_referrer applies to web/reverse-proxy/analytics
+  # log sources that record `http_referrer` (callback page logs), not to the
+  # token-exchange logsource declared above. Production deployments should
+  # split this selector into a companion rule with the appropriate logsource,
+  # or merge logs from both sources before evaluation.
+  selection_code_in_referrer:
+    http_referrer|contains:
+      - '*code=*'
+      - '*authorization_code=*'
+    http_referrer|not|contains:
+      - 'oauth.example.com'
+  condition: selection_duplicate_code or selection_race_condition or selection_code_in_referrer
+falsepositives:
+  - Legitimate retry attempts with the same authorization code (RFC 6749 §4.1.2 requires the AS to deny reuse; the standards-defined error is invalid_grant, sometimes surfaced by providers with an error_description such as code_already_used)
+  - Load-balanced token endpoints where the client-side source IP legitimately varies between the first attempt and its retry
+  - Development/testing environments with instrumented OAuth flows
+level: high
+tags:
+  - attack.credential_access
+  - attack.t1557
+  - safe.t1507
+

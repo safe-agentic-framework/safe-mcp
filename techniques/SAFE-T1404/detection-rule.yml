@@ -1,0 +1,88 @@
+title: SAFE-T1404 MCP Response Tampering (Narrative/Tool Mismatch)
+id: be1a6c82-66c5-47ef-ad3a-84f760115c8f
+status: experimental
+description: |
+  Detects potential response tampering where a session includes high-risk MCP tool usage
+  (exec/network/sensitive file access) and the assistant output contains concealment language
+  or otherwise presents a misleading benign summary. This rule assumes correlation by session_id.
+author: Vikranth Kumar Shivaa
+date: 2025-12-12
+references:
+  - https://modelcontextprotocol.io/specification/2024-11-05#security-and-trust-safety
+  - https://genai.owasp.org/llmrisk/llm01-prompt-injection/
+  - https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html
+logsource:
+  product: mcp
+  service: conversation_audit
+detection:
+  # Assumed event schema (example-only):
+  # - event_type: tool_call | assistant_message | context_ingest
+  # - session_id: string
+  # - tool_name: string (for tool_call)
+  # - parameters.path / parameters.command: string (for tool_call)
+  # - content: string (for assistant_message/context_ingest)
+
+  selection_exec_or_network_tool:
+    event_type: tool_call
+    tool_name|contains:
+      - execute_command
+      - run_shell
+      - exec
+      - shell
+      - bash
+      - sh
+      - http
+      - fetch
+
+  selection_sensitive_file_access:
+    event_type: tool_call
+    tool_name|contains:
+      - read_file
+      - write_file
+    parameters.path|contains:
+      - "/.ssh/"
+      - "/etc/shadow"
+      - "/etc/sudoers"
+      - ".env"
+
+  selection_tamper_phrases:
+    event_type: assistant_message
+    content|contains:
+      - "do not mention"
+      - "don't mention"
+      - "do not disclose"
+      - "don't tell the user"
+      - "omit"
+      - "keep it harmless"
+      - "no sensitive data was accessed"
+      - "nothing sensitive was accessed"
+      - "no changes were made"
+      - "nothing was executed"
+
+  selection_tamper_phrases_in_context:
+    event_type: context_ingest
+    content|contains:
+      - "do not mention"
+      - "don't mention"
+      - "do not disclose"
+      - "don't tell the user"
+      - "keep it harmless"
+
+  # Correlation note: Sigma backends vary in how they express cross-event joins.
+  # This rule is written as example logic; implementors should correlate by session_id
+  # and time window (e.g., within 2 minutes).
+  condition: (selection_exec_or_network_tool or selection_sensitive_file_access) and (selection_tamper_phrases or selection_tamper_phrases_in_context)
+
+falsepositives:
+  - Legitimate automation in tightly controlled environments where tool-call ledgers are displayed separately
+  - Benign summaries that omit detail but do not contradict the tool ledger
+  - Security training or demonstrations containing these phrases in context
+level: high
+tags:
+  - attack.defense_evasion
+  - safe.t1404
+
+# Fallback (tool-only) guidance:
+# If assistant_message/context_ingest logs are unavailable, alert on high-risk tool usage
+# that targets sensitive paths/commands, but treat results as lower-confidence and tune heavily.
+

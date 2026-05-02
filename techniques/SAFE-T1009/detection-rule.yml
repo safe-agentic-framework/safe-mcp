@@ -1,0 +1,412 @@
+title: SAFE-T1009 OAuth Authorization Server Mix-up Detection Pack
+id: a7f8e3d1-9c2b-4a6e-8d5f-1b7c9e4a3f2d
+description: >
+  Comprehensive detection coverage for OAuth 2.0 Authorization Server Mix-up attacks
+  targeting MCP deployments. Detects typosquatting, homograph domains, missing issuer
+  identification (RFC 9207), issuer mismatches, and suspicious certificate characteristics.
+  This detection pack identifies attempts to steal OAuth authorization codes and tokens
+  through lookalike Authorization Server domains.
+
+status: experimental
+author: Raju Kumar Yadav
+date: 2025/11/23
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1009
+  - https://datatracker.ietf.org/doc/html/rfc9207
+  - https://datatracker.ietf.org/doc/html/rfc6819
+  - https://www.usenix.org/conference/usenixsecurity16/technical-sessions/presentation/mainka
+  - https://arxiv.org/abs/1601.01229
+
+logsource:
+  category: authentication
+  product: mcp
+  service: oauth
+
+tags:
+  - attack.initial-access
+  - attack.t1566.002
+  - safe.t1009
+  - oauth.security
+
+---
+title: OAuth Authorization Server Domain Typosquatting Detection
+id: a7f8e3d1-9c2b-4a6e-8d5f-1b7c9e4a3f2d
+status: experimental
+description: >
+  Detects potential Authorization Server Mix-up through common typosquatting patterns
+  targeting major OAuth providers. Identifies hyphenated domains, common misspellings,
+  and brand name variations used to impersonate legitimate Authorization Servers.
+author: Raju Kumar Yadav
+date: 2025/11/23
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1009
+  - https://datatracker.ietf.org/doc/html/rfc9207
+logsource:
+  product: mcp
+  service: oauth
+detection:
+  selection_typosquatting:
+    event.action:
+      - "oauth.authorization.initiated"
+      - "oauth.redirect.followed"
+    oauth.authorization_endpoint|contains:
+      # Google typosquatting patterns
+      - "accounts-google"
+      - "account.google"
+      - "acounts.google"
+      - "accountsgoogle"
+      - "gogle.com"
+      - "gooogle.com"
+      - "googlle.com"
+      # Microsoft typosquatting patterns
+      - "login-microsoft"
+      - "logon.microsoft"
+      - "signin-microsoft"
+      - "microsft.com"
+      - "micosoft.com"
+      - "mcrosoft.com"
+      # GitHub typosquatting patterns
+      - "auth-github"
+      - "github-auth"
+      - "guthub.com"
+      - "githup.com"
+      - "githubb.com"
+      # AWS/Amazon typosquatting patterns
+      - "oauth-aws"
+      - "signin-aws"
+      - "amazn.com"
+      - "amzon.com"
+      - "amazom.com"
+      # Apple typosquatting patterns
+      - "signin-apple"
+      - "apple-auth"
+      - "aple.com"
+      - "appel.com"
+  filter_legitimate:
+    oauth.authorization_endpoint|contains:
+      - "accounts.google.com"
+      - "login.microsoftonline.com"
+      - "login.windows.net"
+      - "github.com/login"
+      - "signin.aws.amazon.com"
+      - "appleid.apple.com"
+  condition: selection_typosquatting and not filter_legitimate
+falsepositives:
+  - Legitimate subdomains with hyphens
+  - Internal development/testing environments
+  - Regional OAuth providers with non-standard naming
+level: critical
+tags:
+  - attack.initial_access
+  - attack.t1566.002
+  - safe.t1009
+
+---
+title: OAuth Authorization Response Missing Issuer Identification (RFC 9207)
+id: b8e9f4c2-0d3a-5b7e-9f6a-2c8d0e5b4a3f
+status: experimental
+description: >
+  Detects OAuth 2.0 authorization responses missing the mandatory issuer (iss) parameter
+  as required by RFC 9207. Missing issuer identification enables Authorization Server
+  Mix-up attacks by preventing clients from validating which AS issued the authorization code.
+author: Raju Kumar Yadav
+date: 2025/11/23
+references:
+  - https://datatracker.ietf.org/doc/html/rfc9207
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1009
+logsource:
+  product: mcp
+  service: oauth
+detection:
+  selection:
+    event.action: "oauth.authorization.response.received"
+  filter_has_issuer:
+    oauth.iss: "*"
+  condition: selection and not filter_has_issuer
+falsepositives:
+  - Legacy OAuth 2.0 servers not yet upgraded to RFC 9207 (published March 2022)
+  - Custom OAuth implementations not following latest standards
+  - Development/staging environments with incomplete configurations
+level: high
+tags:
+  - attack.initial_access
+  - attack.t1566.002
+  - safe.t1009
+
+---
+title: OAuth Issuer Identifier Mismatch
+id: c9f0a5d3-1e4b-6c8f-0a7b-3d9e1f6c5b4a
+status: experimental
+description: >
+  Detects critical mismatch between expected Authorization Server issuer and actual
+  issuer value in OAuth authorization response. This indicates potential Authorization
+  Server Mix-up attack where client received response from different AS than expected.
+author: Raju Kumar Yadav
+date: 2025/11/23
+references:
+  - https://datatracker.ietf.org/doc/html/rfc9207
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1009
+logsource:
+  product: mcp
+  service: oauth
+detection:
+  selection:
+    event.action: "oauth.authorization.response.received"
+    oauth.issuer_validation: "failed"
+  condition: selection
+falsepositives:
+  - Issuer URL changes during AS migration or rebranding
+  - Configuration updates not yet propagated to all clients
+  - Staging/production environment confusion
+level: critical
+tags:
+  - attack.initial_access
+  - attack.t1566.002
+  - safe.t1009
+
+---
+title: OAuth IDN Homograph Domain Detection
+id: d0a1b6e4-2f5c-7d9a-1b8c-4e0f2a7d6c5b
+status: experimental
+description: >
+  Detects International Domain Name (IDN) homograph attacks in OAuth Authorization
+  Server endpoints. Identifies Punycode-encoded domains and mixed-script attacks
+  using Cyrillic, Greek, or other Unicode characters to impersonate legitimate domains.
+author: Raju Kumar Yadav
+date: 2025/11/23
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1009
+  - https://www.unicode.org/reports/tr39/
+  - https://tools.ietf.org/html/rfc3492
+logsource:
+  product: mcp
+  service: oauth
+detection:
+  selection_punycode:
+    event.action:
+      - "oauth.authorization.initiated"
+      - "oauth.redirect.followed"
+    oauth.authorization_endpoint|contains: "xn--"
+  selection_cyrillic:
+    oauth.authorization_endpoint|re: '.*[\u0400-\u04FF].*'
+  selection_greek:
+    oauth.authorization_endpoint|re: '.*[\u0370-\u03FF].*'
+  selection_mixed_latin_cyrillic:
+    oauth.authorization_endpoint|contains:
+      - "google"
+      - "microsoft"
+      - "github"
+      - "amazon"
+      - "apple"
+    oauth.authorization_endpoint|re: '.*[\u0400-\u04FF].*'
+  condition: 1 of selection_*
+falsepositives:
+  - Legitimate internationalized domain names for regional services
+  - Regional OAuth providers serving non-English markets
+  - Internal services using IDN for localization
+level: high
+tags:
+  - attack.initial_access
+  - attack.t1566.002
+  - safe.t1009
+
+---
+title: Suspicious OAuth AS TLD Substitution
+id: e2c3d8f6-4b7a-9e1c-3d0e-6f2b4a9d8c7b
+status: experimental
+description: >
+  Detects OAuth Authorization Server domains using suspicious top-level domain (TLD)
+  substitutions of major providers. Identifies .co instead of .com, regional TLDs,
+  and new gTLDs commonly used in typosquatting attacks.
+author: Raju Kumar Yadav
+date: 2025/11/23
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1009
+logsource:
+  product: mcp
+  service: oauth
+detection:
+  selection:
+    event.action:
+      - "oauth.authorization.initiated"
+      - "oauth.redirect.followed"
+    oauth.authorization_endpoint|contains:
+      - "google.co"
+      - "google.io"
+      - "google.cloud"
+      - "microsoft.co"
+      - "microsoft.io"
+      - "github.co"
+      - "github.io"
+      - "amazon.co"
+      - "apple.co"
+  filter_legitimate:
+    oauth.authorization_endpoint|contains:
+      - "google.com.br" # Legitimate Brazilian
+      - "google.co.uk" # Legitimate UK
+      - "google.co.jp" # Legitimate Japan
+      - "github.io" # Legitimate GitHub Pages (but not for OAuth!)
+  condition: selection and not filter_legitimate
+falsepositives:
+  - Legitimate regional domains (.co.uk, .co.jp, .com.br)
+  - Services legitimately using new gTLDs (.cloud, .io)
+level: medium
+tags:
+  - attack.initial_access
+  - attack.t1566.002
+  - safe.t1009
+
+---
+title: Suspicious OAuth AS Certificate Characteristics
+id: e1b2c7f5-3a6d-8e0b-2c9d-5f1a3b8e7d6c
+status: experimental
+description: >
+  Detects suspicious TLS certificate characteristics for OAuth Authorization Servers
+  that may indicate typosquatted domains. Includes recently issued certificates for
+  brand domains, Domain Validation (DV) certificates for major providers, and
+  certificates from uncommon Certificate Authorities.
+author: Raju Kumar Yadav
+date: 2025/11/23
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1009
+logsource:
+  product: mcp
+  service: tls
+detection:
+  selection_recent_cert:
+    event.action: "tls.certificate.validated"
+    tls.certificate.not_before|timeframe: "7d"
+    tls.server.domain|contains:
+      - "google"
+      - "microsoft"
+      - "github"
+      - "amazon"
+      - "apple"
+  selection_dv_major_provider:
+    event.action: "tls.certificate.validated"
+    tls.certificate.validation_type: "DV"
+    tls.server.domain|re: '.*(google|microsoft|github|amazon|apple)\..*'
+  filter_legitimate:
+    tls.server.domain|endswith:
+      - "google.com"
+      - "googleapis.com"
+      - "gstatic.com"
+      - "microsoft.com"
+      - "microsoftonline.com"
+      - "github.com"
+      - "githubusercontent.com"
+      - "aws.amazon.com"
+      - "amazonaws.com"
+      - "apple.com"
+      - "icloud.com"
+  condition: (1 of selection_*) and not filter_legitimate
+falsepositives:
+  - Legitimate certificate renewals
+  - New regional OAuth endpoints during provider expansion
+  - Development/staging environments
+level: medium
+tags:
+  - attack.initial_access
+  - attack.t1566.002
+  - safe.t1009
+
+---
+title: OAuth First-Seen Authorization Server Domain
+id: f3d4e9a7-5c8b-0f2d-4e1a-7b3c6f9e8d0a
+status: experimental
+description: >
+  Detects OAuth authorization attempts to previously unseen Authorization Server
+  domains. Useful for behavioral baseline detection of potential Mix-up attacks.
+author: Raju Kumar Yadav
+date: 2025/11/23
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1009
+logsource:
+  product: mcp
+  service: oauth
+detection:
+  selection:
+    event.action:
+      - "oauth.authorization.initiated"
+      - "oauth.redirect.followed"
+    oauth.as_domain_first_seen: true
+  filter_allowlist:
+    oauth.as_domain|endswith:
+      - "google.com"
+      - "googleapis.com"
+      - "microsoftonline.com"
+      - "windows.net"
+      - "github.com"
+      - "aws.amazon.com"
+      - "appleid.apple.com"
+  condition: selection and not filter_allowlist
+falsepositives:
+  - Legitimate addition of new OAuth providers
+  - First-time user authentication to known services
+  - New regional endpoints from trusted providers
+level: medium
+tags:
+  - attack.initial_access
+  - attack.t1566.002
+  - safe.t1009
+
+---
+title: OAuth Multiple AS Configurations for Single Service
+id: g4e5f0b8-6d9c-1a3e-5f2b-8c4d7a0f9e1b
+status: experimental
+description: >
+  Detects multiple Authorization Server configurations for the same service provider,
+  which may indicate an attacker attempting to add malicious AS alongside legitimate one.
+author: Raju Kumar Yadav
+date: 2025/11/23
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1009
+logsource:
+  product: mcp
+  service: configuration
+detection:
+  selection:
+    event.action: "oauth.provider.configured"
+  condition: selection | count(oauth.provider_name) by oauth.provider_name > 1
+falsepositives:
+  - Legitimate multiple OAuth apps for same provider (e.g., dev/staging/prod)
+  - Organizations using multiple regional endpoints
+  - Migration between OAuth configurations
+level: medium
+tags:
+  - attack.initial_access
+  - attack.t1566.002
+  - safe.t1009
+
+---
+title: OAuth AS Configuration Sudden Change
+id: h5f6a1c9-7e0d-2b4f-6a3c-9d5e8b1a0f2c
+status: experimental
+description: >
+  Detects sudden changes to OAuth Authorization Server configuration, which may
+  indicate compromise or malicious modification to redirect flows to attacker-controlled AS.
+author: Raju Kumar Yadav
+date: 2025/11/23
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/techniques/SAFE-T1009
+logsource:
+  product: mcp
+  service: configuration
+detection:
+  selection:
+    event.action: "oauth.configuration.modified"
+    oauth.field_changed:
+      - "authorization_endpoint"
+      - "token_endpoint"
+      - "issuer"
+    oauth.modified_by|not: "administrator"
+  condition: selection
+falsepositives:
+  - Legitimate configuration updates by authorized personnel
+  - Automated configuration management systems
+  - Provider-initiated AS endpoint changes
+level: high
+tags:
+  - attack.initial_access
+  - attack.t1566.002
+  - safe.t1009

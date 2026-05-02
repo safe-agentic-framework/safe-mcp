@@ -1,0 +1,184 @@
+---
+title: SAFE-T1306 Rogue Authentication Server Detection Pack
+id: 8b4db9e8-9a8d-4cf0-9f0d-5b7c6c91a2b2
+description: >
+  Comprehensive detection coverage for malicious MCP servers or rogue authorization servers 
+  minting overly-permissive tokens or bypassing Proof of Possession (PoP). 
+  Detects discovery poisoning, key substitution, super-token issuance, and PoP bypass.
+
+status: experimental
+author: ryjen (RJ)
+date: 2025/11/08
+references:
+  - https://portswigger.net/research/hidden-oauth-attack-vectors
+  - https://learn.microsoft.com/en-us/entra/msal/dotnet/advanced/proof-of-possession-tokens
+  - https://www.usenix.org/system/files/conference/usenixsecurity25/sec24winter-prepub-332-luo.pdf
+  - https://modelcontextprotocol.io/specification
+  - https://github.com/modelcontextprotocol/modelcontextprotocol/issues/1415
+  - https://www.usenix.org/conference/usenixsecurity15/technical-sessions/presentation/mladenov
+  - https://lirias.kuleuven.be/server/api/core/bitstreams/6a50c462-5fbe-4481-bf85-0873cc430c61/content
+
+logsource:
+  category: authentication
+  product: mcp
+  service: oauth2
+
+tags:
+  - attack.defense-evasion
+  - attack.credential-access
+  - safe.t1306
+  - owasp.a02.2023-cryptographic-failures
+
+---
+title: Suspicious OAuth Issuer or Discovery Endpoint Change
+id: 930b6b7d-1de4-49b8-b857-1b2eac1b2383
+description: Detects when MCP or OAuth client interacts with a new or unexpected issuer/discovery URL.
+logsource:
+  product: mcp
+  service: discovery
+detection:
+  selection:
+    event.action: [ "discovery.fetch", "openid.configuration", "jwks.fetch" ]
+    issuer.url:
+      - not_in: trusted_issuer_list
+  condition: selection
+level: high
+falsepositives:
+  - Legitimate onboarding of new AS
+  - Development environment
+fields:
+  - issuer.url
+  - kid
+  - jwks_uri
+
+---
+title: New JWKS Key ID Detected
+id: 62f91ac7-4d5d-4a56-9b2f-0a94e7fbe89f
+description: Detects use of new or unknown Key ID (kid) in token verification, which may indicate key substitution.
+logsource:
+  product: resource_server
+  service: oauth2
+detection:
+  selection:
+    event.action: "token.signature.valid"
+    token.kid:
+      - not_in: trusted_kid_list
+  condition: selection
+level: high
+fields:
+  - kid
+  - iss
+  - aud
+
+---
+title: Token Missing Proof of Possession (PoP)
+id: 55b3c14e-2f1e-4d8e-87a8-4b8d1b73e332
+description: Detects tokens missing cnf/jkt binding when PoP is required.
+logsource:
+  product: resource_server
+detection:
+  selection:
+    event.action: "token.validated"
+    token.cnf.jkt: [ null, "", "undefined" ]
+  filter:
+    config.pop_required: true
+  condition: selection and filter
+level: high
+falsepositives:
+  - Non-interactive service accounts using bearer-only tokens
+fields:
+  - iss
+  - aud
+  - cnf
+  - kid
+
+---
+title: Super-Token Issued With Overly Broad Scope
+id: 4a94c222-bb76-4f8a-9874-43182c449b4c
+description: Detects tokens issued with excessive or wildcard scopes that may indicate rogue AS or privilege escalation.
+logsource:
+  product: authorization_server
+detection:
+  selection:
+    event.action: "token.issued"
+    token.scope|contains:
+      - "admin"
+      - "*:*"
+      - "system.*"
+      - "root"
+  condition: selection
+level: high
+falsepositives:
+  - Maintenance or break-glass accounts
+fields:
+  - client_id
+  - scope
+  - iss
+  - aud
+
+---
+title: Abnormal Audience or Scope Combination
+id: b2eae722-662d-4dc9-9df1-824aaf6a8b24
+description: Detects tokens where audience or scope do not match expected client configuration.
+logsource:
+  product: resource_server
+detection:
+  selection:
+    event.action: "token.validated"
+    aud: 
+      - not_in: expected_audiences
+    token.scope|contains: "admin"
+  condition: selection
+level: medium
+
+---
+title: Token Replay Without PoP Binding
+id: 1e1e8a13-dc2d-41c1-8ec2-2ce0f51c8240
+description: Detects reuse of same token `jti` or signature hash from multiple source IPs or devices without valid PoP.
+logsource:
+  category: authentication
+  product: resource_server
+detection:
+  selection:
+    event.action: "token.used"
+    token.jti|count_distinct_src_ip: ">1"
+  filter:
+    token.cnf.jkt: [ null, "", "undefined" ]
+  condition: selection and filter
+level: critical
+fields:
+  - jti
+  - cnf
+  - src_ip
+  - device_id
+
+---
+title: Unusual Token Lifetime or Expiry
+id: 7c8d88a5-9bfa-4f61-bf2d-d46874a598df
+description: Detects tokens issued with unusually long expiration times.
+logsource:
+  product: authorization_server
+detection:
+  selection:
+    event.action: "token.issued"
+    token.exp - token.iat: ">3600" # > 1 hour
+  condition: selection
+level: medium
+
+---
+title: Sudden Surge in Discovery or JWKS Requests
+id: 0f21a145-9441-4db2-9b70-22d91f85b1a9
+description: May indicate automated scanning or rogue MCP performing discovery enumeration.
+logsource:
+  product: mcp
+  service: discovery
+detection:
+  selection:
+    event.action: [ "openid.configuration", "jwks.fetch" ]
+    count_per_minute: ">50"
+  condition: selection
+level: medium
+falsepositives:
+  - Cluster restart or cache warm-up
+---
+

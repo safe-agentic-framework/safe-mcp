@@ -1,0 +1,95 @@
+title: Cross-Tool Contamination Detection
+id: c9fbeec2-8120-4bb0-b835-fe13c420d918
+status: experimental
+description: >
+  Detects potential cross-tool contamination in MCP environments by identifying
+  low-scope tools reusing credentials to access higher-privilege services or
+  an unusual fan-out to multiple services in short sessions. Field names are
+  examples and MUST be adapted to the local MCP logging schema.
+author: SAFE-MCP Team
+date: 2025-12-06
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1701
+  - https://modelcontextprotocol.io/specification/2025-06-18/server/tools
+  - https://owasp.org/www-project-top-10-for-large-language-model-applications/
+  - https://github.com/slowmist/MCP-Security-Checklist
+  - https://python.langchain.com/docs/security/
+  - https://attack.mitre.org/techniques/T1550/
+  - https://attack.mitre.org/techniques/T1552/
+  - https://attack.mitre.org/techniques/T1078/
+tags:
+  - attack.lateral_movement
+  - attack.t1078
+  - attack.t1550
+  - attack.t1552
+  - safe.t1701
+  - mcp
+
+logsource:
+  product: mcp
+  service: tool_runtime
+  category: application
+  definition: >
+    Conceptual example for MCP hosts/clients that log per-tool execution,
+    authentication metadata, and target service information.
+
+detection:
+  # Low-scope tools calling higher-privilege services
+  selection_scope_mismatch:
+    source_tool_scope:
+      - read_only
+      - helper
+    dest_service_scope:
+      - admin
+      - cloud_superuser
+      - ci_controller
+
+  # Token or credential reuse indicators (adapt field names to your schema)
+  selection_credential_reuse:
+    token_reused: true          # e.g., same token_id seen across tools
+    oauth_audience_mismatch: true
+
+  # Fan-out: a single tool touching many distinct services in a short period
+  selection_service_fanout:
+    source_tool_scope:
+      - read_only
+      - helper
+    distinct_target_services|gte: 3
+    timeframe: 5m
+
+  condition: >
+    (selection_scope_mismatch and selection_credential_reuse)
+    or selection_service_fanout
+
+fields:
+  - timestamp
+  - source_tool_id
+  - source_tool_name
+  - source_tool_scope
+  - dest_service
+  - dest_service_scope
+  - dest_tenant_id
+  - token_id
+  - credential_id
+  - oauth_aud
+  - user_id
+  - session_id
+  - workspace_id
+
+falsepositives:
+  - Break-glass workflows that temporarily let helper tools drive admin actions under strict approval
+  - Automated maintenance jobs that legitimately reuse shared service accounts for multi-service operations
+  - Bulk migration or onboarding tasks where helper tool is intentionally granted broader temporary access
+  - Development environments with intentionally relaxed tool isolation for testing
+
+level: high
+
+# Implementation notes:
+# - Field names (source_tool_scope, dest_service_scope, token_reused, etc.) are
+#   illustrative; align with your MCP logging schema.
+# - The distinct_target_services|gte condition may require custom aggregation
+#   in your SIEM or detection platform.
+# - Deploy alongside behavioral analytics to catch novel cross-tool pivot patterns
+#   that don't match static rules.
+# - Consider pairing with token-use analytics that track credential identifiers
+#   across tool invocations to detect lateral movement via shared secrets.

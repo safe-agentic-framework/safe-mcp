@@ -1,0 +1,124 @@
+# EXAMPLE SIGMA RULE - Not comprehensive
+title: MCP Consent Fatigue Attack Detection
+id: 8f37ee6c-6f0e-411b-be8e-36ef3f3fefc1
+status: experimental
+description: Detects potential consent fatigue exploitation through high-frequency approval requests followed by sensitive operations. This rule identifies patterns where users are bombarded with benign approval requests, leading to habituation, then presented with malicious requests. Based on MFA fatigue attack patterns observed in Uber (2022) and Cisco (2022) breaches.
+author: SAFE-MCP Team
+date: 2025-11-16
+modified: 2025-11-16
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T1403
+  - https://www.cisa.gov/news-events/cybersecurity-advisories/aa22-277a
+  - https://www.microsoft.com/en-us/security/blog/2022/08/26/cyber-signals-defending-against-cyber-threats-with-the-latest-research-insights-and-trends/
+  - https://krebsonsecurity.com/2022/09/how-an-mfa-bombing-led-to-ubers-breach/
+  - https://thehackernews.com/2022/09/mfa-fatigue-attack-how-uber-got-hacked.html
+logsource:
+  product: mcp
+  service: approval_workflow
+  category: agent_operations
+detection:
+  # High frequency of requests from single agent/server
+  high_frequency:
+    event_type: 'approval_request'
+    timeframe: '1h'
+    count: '>= 10'
+    group_by: 'agent_id'
+  
+  # Decreasing response times indicating habituation
+  habituation_pattern:
+    event_type: 'approval_granted'
+    response_time_trend: 'decreasing'
+    window_size: 5
+    threshold_percentage: -30  # 30% decrease in response time over last 5 approvals
+  
+  # Sensitive operation approval
+  sensitive_approval:
+    event_type: 'approval_granted'
+    risk_level:
+      - 'high'
+      - 'critical'
+    operation_type:
+      - 'credential_access'
+      - 'system_execution'
+      - 'file_deletion'
+      - 'network_exfiltration'
+      - 'privilege_escalation'
+      - 'environment_variable_access'
+      - 'secret_access'
+  
+  # Rapid approval of sensitive operation (under 2 seconds)
+  rapid_sensitive_approval:
+    event_type: 'approval_granted'
+    risk_level:
+      - 'high'
+      - 'critical'
+    response_time_ms: '< 2000'
+  
+  # Approval rate acceleration
+  approval_acceleration:
+    event_type: 'approval_granted'
+    session_approval_rate: '> 90'  # More than 90% approval rate in session
+    baseline_deviation: '> 30'  # 30% higher than user's baseline
+  
+  # Late-night or high-fatigue time approvals
+  temporal_risk:
+    event_type: 'approval_granted'
+    risk_level:
+      - 'high'
+      - 'critical'
+    hour_of_day:
+      - '< 06'  # Before 6 AM
+      - '> 22'  # After 10 PM
+  
+  # Sequential pattern: many benign followed by sensitive
+  condition: (high_frequency and sensitive_approval) or (habituation_pattern and sensitive_approval) or rapid_sensitive_approval or (approval_acceleration and sensitive_approval) or temporal_risk
+
+falsepositives:
+  - Legitimate bulk operations requiring multiple approvals in development/testing environments
+  - Power users with established fast approval patterns for genuinely safe operations
+  - Automated testing or CI/CD workflows with high approval frequency
+  - Users working in different time zones (late-night detections)
+  - Initial onboarding or training scenarios with high approval counts
+  - Scheduled batch jobs requiring sequential approvals
+
+level: high
+
+tags:
+  - attack.defense_evasion
+  - attack.t1204  # User Execution
+  - attack.t1078  # Valid Accounts (when combined with credential theft)
+  - safe.t1403
+  - mcp.approval_workflow
+  - social_engineering
+
+fields:
+  - user_id
+  - agent_id
+  - approval_count
+  - response_time_ms
+  - operation_type
+  - risk_level
+  - session_id
+  - timestamp
+  - hour_of_day
+  - approval_rate
+
+notes:
+  - This rule detects patterns of consent fatigue exploitation but requires baseline establishment for each user
+  - Consider implementing machine learning models for more accurate habituation detection
+  - Response time trends are key indicators - monitor for acceleration over time
+  - Combine with user behavior analytics for reduced false positives
+  - Pattern-based detection has limitations - attackers may evade by varying timing or request patterns
+  - Organizations should implement multiple detection layers beyond this signature
+
+# Detection Logic Explanation:
+# 1. high_frequency: Detects when a single agent generates 10+ approval requests in 1 hour
+# 2. habituation_pattern: Identifies when user response times decrease by 30%+ over 5 consecutive approvals
+# 3. sensitive_approval: Flags approval of high-risk operations (credentials, execution, etc.)
+# 4. rapid_sensitive_approval: Critical indicator - sensitive operation approved in under 2 seconds
+# 5. approval_acceleration: User's approval rate significantly exceeds their established baseline
+# 6. temporal_risk: High-risk approvals during known fatigue periods (late night, early morning)
+#
+# The rule triggers when any combination of frequency + sensitive operation occurs,
+# or when rapid approvals of sensitive operations are detected regardless of other factors.
+

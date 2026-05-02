@@ -1,0 +1,61 @@
+title: Detection of Server Impersonation / Name-Collision (SAFE-T1004)
+id: 9f3c2a8e-7d4b-4c2f-9a1e-8e2b7f9c1d23
+status: experimental
+description: Detects indicators of server impersonation or name-collision attacks across DNS, ARP, TLS, and local registry events. Message-text selections are illustrative; operators should tailor them to their own telemetry pipeline. Elevate from medium to high only when correlated with expected MCP server identity, registry changes, or DHCP/ARP anomalies.
+author: Ryan Jennings
+date: 2025-11-22
+modified: 2026-04-23
+references:
+  - https://github.com/SAFE-MCP/safe-mcp/tree/main/techniques/SAFE-T1004
+  - https://attack.mitre.org/techniques/T1557/
+  - https://attack.mitre.org/techniques/T1557/002/
+  - https://attack.mitre.org/techniques/T1557/003/
+logsource:
+  product: windows
+  service: system
+detection:
+  selection_dns:
+    EventID: 1014
+    Provider_Name: "Microsoft-Windows-DNS-Client"
+    Message|contains:
+      - "timed out after none of the configured DNS servers responded"
+      - "DNSSEC validation failed"
+  selection_odr:
+    Provider_Name: "ODR"
+    Message|contains:
+      - "duplicate service registration"
+      - "name collision"
+  selection_arp:
+    Provider_Name: "Microsoft-Windows-TCPIP"
+    Message|contains:
+      - "duplicate ARP entry"
+      - "MAC address mismatch"
+  selection_tls_untrusted_ca:
+    EventID: 36882
+    Provider_Name: "Schannel"
+    Message|contains:
+      - "issued by an untrusted"
+      - "untrusted certificate authority"
+      - "self-signed certificate"
+  selection_tls_hostname_mismatch:
+    EventID: 36884
+    Provider_Name: "Schannel"
+    Message|contains:
+      - "host name"
+      - "hostname"
+      - "name mismatch"
+  condition: selection_dns or selection_odr or selection_arp or selection_tls_untrusted_ca or selection_tls_hostname_mismatch
+falsepositives:
+  - Legitimate service redeployments that temporarily create duplicate registry entries
+  - Controlled test environments using self-signed certificates
+  - Planned DNS cutovers during maintenance windows
+  - Routine DNS-client timeouts (1014) unrelated to name collision
+  - Schannel events (36882/36884) from upstream misconfigurations rather than spoofing
+level: medium
+tags:
+  - attack.credential_access
+  - attack.collection
+  - attack.t1557
+  - attack.t1557.002
+  - attack.t1557.003
+  - safe.t1004

@@ -1,0 +1,29 @@
+[
+  {
+    "timestamp": "2025-11-21T10:15:00Z",
+    "client_id": "mcp-client",
+    "redirect_uri": "https://attacker.example/callback",
+    "oauth.response_type": "token",
+    "scope": "read write",
+    "source_ip": "203.0.113.45",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+  },
+  {
+    "timestamp": "2025-11-21T10:16:30Z",
+    "client_id": "legacy-app",
+    "redirect_uri": "https://legacy.example/callback",
+    "oauth.response_type": "id_token",
+    "scope": "openid profile",
+    "source_ip": "198.51.100.23",
+    "user_agent": "Chrome/120.0.0.0"
+  },
+  {
+    "timestamp": "2025-11-21T10:18:10Z",
+    "client_id": "trusted-service",
+    "redirect_uri": "https://service.example/callback",
+    "oauth.response_type": "code",
+    "scope": "read write",
+    "source_ip": "192.0.2.10",
+    "user_agent": "Safari/17.0"
+  }
+]

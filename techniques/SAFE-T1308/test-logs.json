@@ -1,0 +1,531 @@
+{
+    "description": "Comprehensive test logs for SAFE-T1308: Token Scope Substitution detection rule validation",
+    "test_cases": [
+        {
+            "test_id": "T1308-001",
+            "description": "Direct scope validation failure - should trigger detection",
+            "expected_match": true,
+            "severity": "high",
+            "log_entry": {
+                "timestamp": "2025-11-20T10:15:30Z",
+                "event_type": "authorization_check",
+                "user_id": "user@example.com",
+                "token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...elevated",
+                "token_subject": "user@example.com",
+                "token_issuer": "https://mcp-auth.example.com",
+                "token_audience": "https://mcp-server.example.com",
+                "granted_scopes": "mcp:read mcp:write mcp:delete mcp:admin",
+                "required_scope": "mcp:delete",
+                "operation_type": "delete",
+                "api_endpoint": "/mcp/tools/sensitive-data",
+                "token_signature_valid": true,
+                "audience_validation": "passed",
+                "scope_validation": "failed",
+                "validation_result": "denied",
+                "source_ip": "192.168.1.100",
+                "user_agent": "MCP-Client/1.0",
+                "reason": "Token scope mismatch detected"
+            }
+        },
+        {
+            "test_id": "T1308-002",
+            "description": "Elevated operation with unusual scope - should trigger detection",
+            "expected_match": true,
+            "severity": "high",
+            "log_entry": {
+                "timestamp": "2025-11-20T10:20:45Z",
+                "event_type": "api_request",
+                "user_id": "normaluser@example.com",
+                "token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...admin",
+                "token_subject": "normaluser@example.com",
+                "token_issuer": "https://mcp-auth.example.com",
+                "token_audience": "https://mcp-server.example.com",
+                "granted_scopes": "mcp:admin",
+                "required_scope": "mcp:admin",
+                "operation_type": "admin",
+                "api_endpoint": "/mcp/admin/grant-permissions",
+                "validation_result": "granted",
+                "source_ip": "10.0.0.50",
+                "user_agent": "curl/7.68.0",
+                "privilege_level": "admin",
+                "scope_deviation_severity": "high",
+                "baseline_exceeded": true
+            }
+        },
+        {
+            "test_id": "T1308-003",
+            "description": "Token switching pattern - multiple tokens different scopes",
+            "expected_match": true,
+            "severity": "critical",
+            "log_entry": {
+                "timestamp": "2025-11-20T10:25:00Z",
+                "event_type": "token_usage_pattern",
+                "user_id": "user@example.com",
+                "unique_token_count": 3,
+                "scope_variance": "high",
+                "time_window_seconds": 180,
+                "same_user": true,
+                "token_details": [
+                    {
+                        "token_id": "token1",
+                        "scopes": "mcp:read",
+                        "used_at": "2025-11-20T10:22:00Z"
+                    },
+                    {
+                        "token_id": "token2",
+                        "scopes": "mcp:read mcp:write",
+                        "used_at": "2025-11-20T10:23:30Z"
+                    },
+                    {
+                        "token_id": "token3",
+                        "scopes": "mcp:read mcp:write mcp:delete mcp:admin",
+                        "used_at": "2025-11-20T10:25:00Z"
+                    }
+                ]
+            }
+        },
+        {
+            "test_id": "T1308-004",
+            "description": "Cross-tool privilege escalation in MCP",
+            "expected_match": true,
+            "severity": "high",
+            "log_entry": {
+                "timestamp": "2025-11-20T10:30:15Z",
+                "event_type": "mcp_tool_chain_analysis",
+                "user_id": "agent@example.com",
+                "source_tool": "read_file_tool",
+                "source_tool_scope": "read",
+                "target_tool": "delete_file_tool",
+                "target_operation_scope": "delete",
+                "token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...substituted",
+                "granted_scopes": "mcp:read mcp:delete",
+                "privilege_elevation": true,
+                "mcp_tool_name": "delete_file_tool",
+                "validation_result": "suspicious"
+            }
+        },
+        {
+            "test_id": "T1308-005",
+            "description": "Scope substitution detected - token changed with elevated scope",
+            "expected_match": true,
+            "severity": "critical",
+            "log_entry": {
+                "timestamp": "2025-11-20T10:35:20Z",
+                "event_type": "token_analysis",
+                "user_id": "attacker@example.com",
+                "original_token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...original",
+                "substituted_token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...elevated",
+                "original_scopes": "mcp:read mcp:list",
+                "substituted_scopes": "mcp:read mcp:write mcp:delete mcp:admin",
+                "token_scope_change_detected": true,
+                "audience_match": true,
+                "issuer_match": true,
+                "different_token_id": true,
+                "elevated_scope": true,
+                "scope_elevation_amount": 2
+            }
+        },
+        {
+            "test_id": "T1308-006",
+            "description": "Auth retry pattern - failed then success with different token",
+            "expected_match": true,
+            "severity": "high",
+            "log_entry": {
+                "timestamp": "2025-11-20T10:40:30Z",
+                "event_type": "authorization_sequence",
+                "user_id": "user@example.com",
+                "failed_attempts": 3,
+                "final_attempt_status": "success",
+                "token_changed": true,
+                "time_window_seconds": 45,
+                "attempt_details": [
+                    {
+                        "attempt": 1,
+                        "token_id": "token_limited",
+                        "scopes": "mcp:read",
+                        "result": "denied",
+                        "reason": "insufficient_scope",
+                        "timestamp": "2025-11-20T10:39:45Z"
+                    },
+                    {
+                        "attempt": 2,
+                        "token_id": "token_limited",
+                        "scopes": "mcp:read",
+                        "result": "denied",
+                        "reason": "insufficient_scope",
+                        "timestamp": "2025-11-20T10:40:00Z"
+                    },
+                    {
+                        "attempt": 3,
+                        "token_id": "token_elevated",
+                        "scopes": "mcp:read mcp:write mcp:delete",
+                        "result": "granted",
+                        "reason": "scope_valid",
+                        "timestamp": "2025-11-20T10:40:30Z"
+                    }
+                ]
+            }
+        },
+        {
+            "test_id": "T1308-007",
+            "description": "Service account token misuse by user",
+            "expected_match": true,
+            "severity": "critical",
+            "log_entry": {
+                "timestamp": "2025-11-20T10:45:00Z",
+                "event_type": "api_request",
+                "user_id": "regular.user@example.com",
+                "token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...service",
+                "token_subject": "service-bot@example.com",
+                "token_subject_type": "service_account",
+                "requester_type": "user",
+                "granted_scopes": "mcp:admin mcp:service mcp:automation",
+                "operation_type": "admin",
+                "api_endpoint": "/mcp/admin/revoke-all-tokens",
+                "validation_result": "granted",
+                "source_ip": "203.0.113.45",
+                "user_agent": "Mozilla/5.0",
+                "reason": "Service account token used by non-service account"
+            }
+        },
+        {
+            "test_id": "T1308-008",
+            "description": "Cross-service token reuse with audience mismatch",
+            "expected_match": true,
+            "severity": "high",
+            "log_entry": {
+                "timestamp": "2025-11-20T10:50:10Z",
+                "event_type": "token_validation",
+                "user_id": "user@example.com",
+                "token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...crossservice",
+                "token_issuer": "https://auth.service-a.com",
+                "token_audience": "https://api.service-a.com",
+                "current_service": "https://api.service-b.com",
+                "token_audience_mismatch": true,
+                "token_accepted": true,
+                "different_service": true,
+                "granted_scopes": "admin write delete",
+                "validation_result": "accepted_with_warning"
+            }
+        },
+        {
+            "test_id": "T1308-009",
+            "description": "Legitimate admin operation - should NOT trigger (false positive check)",
+            "expected_match": false,
+            "severity": "none",
+            "log_entry": {
+                "timestamp": "2025-11-20T11:00:00Z",
+                "event_type": "api_request",
+                "user_id": "admin@example.com",
+                "token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...admin_legit",
+                "token_subject": "admin@example.com",
+                "token_issuer": "https://mcp-auth.example.com",
+                "token_audience": "https://mcp-server.example.com",
+                "granted_scopes": "mcp:admin mcp:read mcp:write mcp:delete",
+                "required_scope": "mcp:admin",
+                "operation_type": "admin",
+                "api_endpoint": "/mcp/admin/users",
+                "token_signature_valid": true,
+                "audience_validation": "passed",
+                "scope_validation": "passed",
+                "validation_result": "granted",
+                "source_ip": "192.168.10.5",
+                "user_agent": "MCP-Admin-Panel/2.0",
+                "user_role": "administrator",
+                "within_baseline": true,
+                "scope_deviation_severity": "none"
+            }
+        },
+        {
+            "test_id": "T1308-010",
+            "description": "Normal read operation - should NOT trigger (negative test)",
+            "expected_match": false,
+            "severity": "none",
+            "log_entry": {
+                "timestamp": "2025-11-20T11:05:00Z",
+                "event_type": "api_request",
+                "user_id": "normaluser@example.com",
+                "token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...read",
+                "token_subject": "normaluser@example.com",
+                "token_issuer": "https://mcp-auth.example.com",
+                "token_audience": "https://mcp-server.example.com",
+                "granted_scopes": "mcp:read mcp:list",
+                "required_scope": "mcp:read",
+                "operation_type": "read",
+                "api_endpoint": "/mcp/tools/list",
+                "token_signature_valid": true,
+                "audience_validation": "passed",
+                "scope_validation": "passed",
+                "validation_result": "granted",
+                "source_ip": "192.168.1.100",
+                "user_agent": "MCP-Client/1.0",
+                "within_baseline": true
+            }
+        },
+        {
+            "test_id": "T1308-011",
+            "description": "Scope anomaly with high deviation severity",
+            "expected_match": true,
+            "severity": "critical",
+            "log_entry": {
+                "timestamp": "2025-11-20T11:10:30Z",
+                "event_type": "scope_usage_analysis",
+                "user_id": "developer@example.com",
+                "token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...anomaly",
+                "granted_scopes": "mcp:admin mcp:delete mcp:write_all",
+                "typical_scopes": "mcp:read mcp:write",
+                "scope_deviation_severity": "critical",
+                "scope_elevation_detected": true,
+                "baseline_exceeded": true,
+                "elevation_level": 3,
+                "unusual_scope_detected": "mcp:admin"
+            }
+        },
+        {
+            "test_id": "T1308-012",
+            "description": "Prompt injection leading to scope substitution in AI agent",
+            "expected_match": true,
+            "severity": "high",
+            "log_entry": {
+                "timestamp": "2025-11-20T11:15:45Z",
+                "event_type": "mcp_tool_invocation",
+                "user_id": "ai-agent@example.com",
+                "mcp_tool_name": "delete_sensitive_data",
+                "source_tool": "read_config",
+                "source_tool_scope": "read",
+                "target_operation_scope": "delete",
+                "token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...ai_elevated",
+                "granted_scopes": "mcp:read mcp:delete",
+                "operation_type": "delete",
+                "api_endpoint": "/mcp/data/sensitive/delete",
+                "privilege_elevation": true,
+                "llm_decision": "execute",
+                "prompt_injection_suspected": true,
+                "validation_result": "suspicious"
+            }
+        },
+        {
+            "test_id": "T1308-013",
+            "description": "Wildcard scope abuse - should trigger detection",
+            "expected_match": true,
+            "severity": "critical",
+            "log_entry": {
+                "timestamp": "2025-11-20T11:20:00Z",
+                "event_type": "api_request",
+                "user_id": "compromised@example.com",
+                "token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...wildcard",
+                "token_subject": "compromised@example.com",
+                "granted_scopes": "*",
+                "operation_type": "delete",
+                "api_endpoint": "/mcp/tools/delete-all",
+                "token_signature_valid": true,
+                "audience_validation": "passed",
+                "scope_deviation_severity": "critical",
+                "wildcard_scope_detected": true
+            }
+        },
+        {
+            "test_id": "T1308-014",
+            "description": "Gradual scope escalation over time - should trigger detection",
+            "expected_match": true,
+            "severity": "high",
+            "log_entry": {
+                "timestamp": "2025-11-20T11:25:00Z",
+                "event_type": "token_usage_pattern",
+                "user_id": "attacker@example.com",
+                "unique_token_count": 5,
+                "scope_variance": "high",
+                "time_window_seconds": 600,
+                "same_user": true,
+                "escalation_pattern": "gradual",
+                "token_details": [
+                    {
+                        "token_id": "token1",
+                        "scopes": "mcp:read",
+                        "used_at": "2025-11-20T11:15:00Z"
+                    },
+                    {
+                        "token_id": "token2",
+                        "scopes": "mcp:read mcp:list",
+                        "used_at": "2025-11-20T11:17:00Z"
+                    },
+                    {
+                        "token_id": "token3",
+                        "scopes": "mcp:read mcp:list mcp:write",
+                        "used_at": "2025-11-20T11:20:00Z"
+                    },
+                    {
+                        "token_id": "token4",
+                        "scopes": "mcp:read mcp:write mcp:delete",
+                        "used_at": "2025-11-20T11:22:00Z"
+                    },
+                    {
+                        "token_id": "token5",
+                        "scopes": "mcp:admin",
+                        "used_at": "2025-11-20T11:25:00Z"
+                    }
+                ]
+            }
+        },
+        {
+            "test_id": "T1308-015",
+            "description": "Off-hours admin operation with scope elevation - should trigger",
+            "expected_match": true,
+            "severity": "high",
+            "log_entry": {
+                "timestamp": "2025-11-20T02:30:00Z",
+                "event_type": "api_request",
+                "user_id": "junior.dev@example.com",
+                "token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...offhours",
+                "granted_scopes": "mcp:admin mcp:system_config",
+                "operation_type": "system_config",
+                "api_endpoint": "/mcp/system/modify-permissions",
+                "time_of_day": "off_hours",
+                "scope_deviation_severity": "high",
+                "unusual_timing": true,
+                "user_typical_role": "developer"
+            }
+        },
+        {
+            "test_id": "T1308-016",
+            "description": "Geographic anomaly with scope escalation - should trigger",
+            "expected_match": true,
+            "severity": "critical",
+            "log_entry": {
+                "timestamp": "2025-11-20T11:35:00Z",
+                "event_type": "api_request",
+                "user_id": "user@example.com",
+                "token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...geo_anomaly",
+                "granted_scopes": "mcp:admin mcp:delete",
+                "operation_type": "admin",
+                "source_ip": "198.51.100.45",
+                "source_country": "XX",
+                "user_typical_location": "US",
+                "geographic_anomaly": true,
+                "impossible_travel_detected": true,
+                "scope_deviation_severity": "critical"
+            }
+        },
+        {
+            "test_id": "T1308-017",
+            "description": "Token scope modification analysis",
+            "expected_match": true,
+            "severity": "high",
+            "log_entry": {
+                "timestamp": "2025-11-20T11:40:00Z",
+                "event_type": "token_analysis",
+                "user_id": "user@example.com",
+                "token_id": "eyJ0eXAiOiJKV1QiLCJhbGc...modified",
+                "token_first_seen": "2025-11-20T10:00:00Z",
+                "token_scope_at_issuance": "mcp:read",
+                "token_scope_now": "mcp:read mcp:admin",
+                "token_scope_change_detected": true,
+                "elevated_scope": true,
+                "audience_match": true,
+                "issuer_match": true,
+                "different_token_id": false,
+                "scope_modification_detected": true
+            }
+        },
+        {
+            "test_id": "T1308-018",
+            "description": "Legitimate service account operation - should NOT trigger",
+            "expected_match": false,
+            "severity": "none",
+            "log_entry": {
+                "timestamp": "2025-11-20T11:45:00Z",
+                "event_type": "api_request",
+                "user_id": "backup-service@example.com",
+                "token_subject_type": "service_account",
+                "requester_type": "service_account",
+                "granted_scopes": "mcp:read mcp:backup",
+                "operation_type": "backup",
+                "api_endpoint": "/mcp/backup/create",
+                "automated_task": true,
+                "within_baseline": true
+            }
+        },
+        {
+            "test_id": "T1308-019",
+            "description": "Developer with temporary elevated access - should NOT trigger",
+            "expected_match": false,
+            "severity": "none",
+            "log_entry": {
+                "timestamp": "2025-11-20T11:50:00Z",
+                "event_type": "api_request",
+                "user_id": "oncall.dev@example.com",
+                "granted_scopes": "mcp:admin mcp:debug",
+                "operation_type": "debug",
+                "api_endpoint": "/mcp/debug/analyze",
+                "temporary_elevation_approved": true,
+                "elevation_ticket": "INCIDENT-12345",
+                "elevation_expiry": "2025-11-20T12:00:00Z",
+                "within_policy": true
+            }
+        },
+        {
+            "test_id": "T1308-020",
+            "description": "Batch API operations with consistent scopes - should NOT trigger",
+            "expected_match": false,
+            "severity": "none",
+            "log_entry": {
+                "timestamp": "2025-11-20T11:55:00Z",
+                "event_type": "api_request",
+                "user_id": "integration@example.com",
+                "granted_scopes": "mcp:read mcp:write",
+                "operation_type": "write",
+                "api_endpoint": "/mcp/data/batch-update",
+                "batch_operation": true,
+                "request_count": 100,
+                "all_requests_same_scope": true,
+                "within_baseline": true
+            }
+        }
+    ],
+    "test_summary": {
+        "total_test_cases": 20,
+        "expected_matches": 17,
+        "expected_non_matches": 3,
+        "coverage_categories": [
+            "scope_validation_failure",
+            "elevated_operation_detection",
+            "token_switching_pattern",
+            "cross_tool_escalation",
+            "scope_substitution",
+            "auth_retry_pattern",
+            "service_account_misuse",
+            "cross_service_reuse",
+            "legitimate_admin_operations",
+            "normal_operations",
+            "scope_anomaly_detection",
+            "ai_agent_manipulation",
+            "wildcard_scope_abuse",
+            "gradual_escalation",
+            "off_hours_detection",
+            "geographic_anomaly",
+            "token_replay",
+            "legitimate_service_operations",
+            "temporary_elevation",
+            "batch_operations"
+        ],
+        "attack_vectors_covered": [
+            "direct_substitution",
+            "gradual_escalation",
+            "cross_tool_exploitation",
+            "ai_agent_manipulation",
+            "service_account_compromise",
+            "geographic_evasion",
+            "temporal_evasion",
+            "token_replay"
+        ]
+    },
+    "metadata": {
+        "technique_id": "SAFE-T1308",
+        "technique_name": "Token Scope Substitution",
+        "rule_id": "81be6870-4550-4fd6-adb9-54567d58ad75",
+        "created": "2025-11-20",
+        "author": "Raju Kumar Yadav",
+        "version": "2.0",
+        "last_updated": "2025-11-20"
+    }
+}
