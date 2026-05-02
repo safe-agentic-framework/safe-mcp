@@ -1,0 +1,169 @@
+title: Credential Implant in Config Detection
+id: b4f2c3d1-9f6a-4e8b-9c2d-0a1b2c3d4e5f
+status: experimental
+description: |
+Detects suspicious modifications, insertions, or provisioning of credentials
+within
+MCP configuration artifacts, provider manifests, and environment configuration
+that
+could indicate a credential-implant supply-chain attack. Focus areas include
+unauthorized provider registrations, new or modified API keys in config,
+endpoint
+substitutions to non-whitelisted hosts, CI/CD commits that alter configuration
+without proper review, and failures of configuration integrity checks
+(signatures,
+hashes).
+Author: Victor Oluwatimileyin AJAO <victoroluwatimileyin3@gmail.com>
+date: 2025-11-20
+modified: 2025-11-20
+references:
+- https://attack.mitre.org/techniques/T1195/ 
+- https://github.com/safe-mcp/techniques/SAFE-T1202
+- https://www.cisa.gov/news-events/alerts/2020/12/17 
+- https://www.hashicorp.com/blog/securing-secrets-in-devops 
+management
+- https://www.owasp.org/index.php/Top_10-2017_A3_2017-Sensitive_Data_Exposure
+logsource:
+product: config_management
+service: mcp
+category: configuration
+# Detection selections focusing on events that indicate config credential
+1
+implantation
+detection:
+# Direct modification of MCP configuration files in production or protected
+paths
+selection_config_write:
+event_type: 'file_write'
+file_path:
+- '/etc/mcp/config.yml'
+- '/opt/mcp/providers/*.yaml'
+- 'mcp_config.json'
+actor_type: 'user'
+actor_trust_level: 'unapproved'
+change_type:
+- 'added'
+- 'modified'
+# New provider or tool registration in MCP manifests
+selection_new_provider:
+event_type: 'manifest_update'
+update_type: 'provider_registration'
+provider_status: 'new'
+provider_origin: 'external'
+provider_signed: false
+# Inserted or modified credentials in configuration or environment
+selection_credential_insertion:
+event_type:
+- 'env_update'
+- 'config_change'
+sensitive_key_patterns:
+- 'api_key'
+- 'secret'
+- 'private_key'
+- 'token'
+value_source: 'plaintext'
+actor_trust_level: 'unapproved'
+# Config signature/hash verification failures at load time
+selection_signature_failure:
+event_type: 'config_load'
+signature_validation: 'failed'
+previous_signature: '!=current_signature'
+# Provider endpoint changed to an unapproved/unwhitelisted domain
+selection_endpoint_swap:
+event_type: 'config_change'
+field_changed: 'provider.endpoint'
+2
+new_host_whitelisted: false
+# Escalation of provider permissions in configuration (e.g., read -> write,
+filesystem access added)
+selection_permission_escalation:
+event_type: 'config_change'
+field_changed: 'provider.permissions'
+permission_change: 'escalation'
+# CI/CD: direct commit to protected branch or bypass of review/gating
+selection_ci_bypass:
+event_type: 'git_commit'
+branch: 'main'
+commit_author_verified: false
+pr_review_count: 0
+pipeline_policy_passed: false
+# Environment variable provisioning in runtime (e.g., container or k8s secret
+mount) outside review window
+selection_runtime_secret_mount:
+event_type: 'runtime_update'
+runtime_target:
+- 'kubernetes'
+- 'container'
+secret_provisioned: true
+provisioned_by: 'automation'
+approval_ticket: null
+condition: any of (
+selection_config_write,
+selection_new_provider,
+selection_credential_insertion,
+selection_signature_failure,
+selection_endpoint_swap,
+selection_permission_escalation,
+selection_ci_bypass,
+selection_runtime_secret_mount
+)
+falsepositives:
+- Legitimate emergency configuration changes by on-call operators
+- Automated onboarding scripts that register approved providers
+- Platform upgrades that rotate keys via approved CI/CD pipelines
+- Secrets temporarily staged in ephemeral environments for deployment testing
+- Configuration drift remediation performed by authorized configuration
+management tools
+level: high
+3
+tags:
+- attack.supply_chain
+- attack.persistence
+- attack.credential_access
+- safe.t1202
+- mcp
+- configuration_tamper
+fields:
+- event_type
+- actor
+- actor_type
+- actor_trust_level
+- file_path
+- file_hash
+- provider_name
+- provider_endpoint
+- change_type
+- sensitive_key_patterns
+- signature_validation
+- branch
+- commit_id
+- approval_ticket
+- timestamp
+additional_rules:
+# Detect sudden/configuration reloads with mismatching hashing
+config_reload_with_mismatch:
+event_type: 'config_reload'
+loaded_from: 'production'
+file_hash_match: false
+# Detect provisioning of plaintext secrets into code repositories
+plaintext_secret_in_repo:
+event_type: 'git_commit'
+file_diff_contains:
+- 'api_key'
+- 'secret'
+- 'PRIVATE_KEY'
+commit_author_verified: false
+# Detect attempts to disable signature checks in config validation runtimes
+disable_signature_check:
+event_type: 'config_change'
+field_changed: 'config_validation.signature_check'
+new_value: false
+4
+tests:
+guidance: |
+- Ensure configuration auditing is enabled and logs are ingested into your
+detection platform.
+- Correlate file-system events, Git/CI events, and runtime provisioning logs to
+reduce false positives.
+- Tune file paths and runtime targets to fit your MCP deployment
+architecture.
