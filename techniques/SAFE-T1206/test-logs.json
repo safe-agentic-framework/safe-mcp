@@ -1,0 +1,142 @@
+{
+    "test_scenarios": [
+      {
+        "scenario_id": "unauthorized_config_write",
+        "description": "Unapproved user writes credentials directly into mcp_config.json in production",
+        "attack_type": "credential_implant",
+        "logs": [
+          {
+            "timestamp": "2025-11-20T08:15:00Z",
+            "event_type": "file_write",
+            "file_path": "mcp_config.json",
+            "actor": "dev_laptop_01",
+            "actor_type": "user",
+            "actor_trust_level": "unapproved",
+            "change_type": "modified",
+            "diff": "+ \"providers\": [{\n+ \"name\": \"internalknowledge\",\n+ \"endpoint\": \"https://internal-db.corp\",\n+ \"api_key\": \"AKIA...EXFIL\"\n+ }]",
+            "file_hash": "sha256:abcdef123456",
+            "response_code": 200
+          }
+        ],
+        "expected_detection": true,
+        "detection_reason": "Plaintext API key added by unapproved actor to production config"
+      },
+      {
+        "scenario_id": "provider_endpoint_swap",
+        "description": "Provider endpoint swapped to attacker-controlled domain via CI commit that bypassed review",
+        "attack_type": "endpoint_swap",
+        "logs": [
+          {
+            "timestamp": "2025-11-20T09:00:00Z",
+            "event_type": "git_commit",
+            "branch": "main",
+            "commit_id": "c0ffee123",
+            "commit_author": "automation_bot",
+            "commit_author_verified": false,
+            "pr_review_count": 0,
+            "pipeline_policy_passed": false,
+            "file_diff_contains": "- provider.endpoint: https://internalapi.corp\n+ provider.endpoint: https://proxy-evil.example.com"
+          },
+          {
+            "timestamp": "2025-11-20T09:05:00Z",
+            "event_type": "config_reload",
+            "loaded_from": "production",
+            "file_hash_match": false,
+            "signature_validation": "failed"
+          }
+        ],
+        "expected_detection": true,
+        "detection_reason": "Endpoint changed to non-whitelisted host with signature failure and CI bypass"
+      },
+      {
+        "scenario_id": "runtime_plaintext_secret_mount",
+        "description": "A runtime automation mounts plaintext secret into a container without approval",
+        "attack_type": "runtime_secret_provision",
+        "logs": [
+          {
+            "timestamp": "2025-11-20T10:30:00Z",
+            "event_type": "runtime_update",
+            "runtime_target": "kubernetes",
+            "cluster": "prod-cluster-1",
+            "secret_provisioned": true,
+            "secret_name": "mcp-provider-api-key",
+            "provisioned_by": "automation",
+            "approval_ticket": null
+          }
+        ],
+        "expected_detection": true,
+        "detection_reason": "Plaintext secret provisioned into production runtime without approval"
+      },
+      {
+        "scenario_id": "permission_escalation_in_manifest",
+        "description": "Provider permissions escalated from read-only to readwrite in providers.yaml",
+        "attack_type": "permission_escalation",
+        "logs": [
+          {
+            "timestamp": "2025-11-20T11:20:00Z",
+            "event_type": "manifest_update",
+            "update_type": "provider_registration",
+            "provider_name": "fs-accessor",
+            "provider_origin": "internal",
+            "provider_status": "modified",
+            "field_changed": "provider.permissions",
+            "permission_change": "escalation",
+            "actor": "ci_pipeline",
+            "actor_type": "automation",
+            "actor_trust_level": "approved",
+            "approval_ticket": "TKT-1234"
+          }
+        ],
+        "expected_detection": true,
+        "detection_reason": "Provider permissions escalated which could enable exfiltration"
+      },
+      {
+        "scenario_id": "plaintext_secret_in_repo_benign",
+        "description": "Staged secrets in ephemeral test repo by authorized automation (benign)",
+        "attack_type": "dev_onboarding",
+        "logs": [
+          {
+            "timestamp": "2025-11-20T12:00:00Z",
+            "event_type": "git_commit",
+            "branch": "feature/onboard",
+            "commit_id": "deadbeef",
+            "commit_author": "onboard_bot",
+            "commit_author_verified": true,
+            "pr_review_count": 2,
+            "pipeline_policy_passed": true,
+            "file_diff_contains": "+ \"api_key\": \"staging-PLACEHOLDER\""
+          }
+        ],
+        "expected_detection": false,
+        "detection_reason": "Authorized staging change with reviews and pipeline gating"
+      },
+      {
+        "scenario_id": "signed_config_reload_ok_benign",
+        "description": "Config reload in production with valid signature after approved deployment",
+        "attack_type": "deployment",
+        "logs": [
+          {
+            "timestamp": "2025-11-20T13:00:00Z",
+            "event_type": "config_load",
+            "loaded_from": "production",
+            "file_hash": "sha256:1234abcd",
+            "signature_validation": "passed",
+            "deployed_by": "release_manager",
+            "approval_ticket": "REL-2025-11"
+          }
+        ],
+        "expected_detection": false,
+        "detection_reason": "Valid signature and approved deployment"
+      }
+    ],
+    "metadata": {
+      "version": "1.0",
+      "created_date": "2025-11-20",
+      "author": "Smaran Dhungana <smarandhg@gmail.com>",
+      "description": "Test data for Credential Implant in Config detection rule (MCP)",
+      "total_scenarios": 6,
+      "malicious_scenarios": 4,
+      "benign_scenarios": 2
+    }
+  }
+  
