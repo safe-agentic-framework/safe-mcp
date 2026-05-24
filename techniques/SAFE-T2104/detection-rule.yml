@@ -1,0 +1,101 @@
+title: MCP Agent Fraudulent Transaction Detection
+id: E962C613-F5AD-4F93-A830-D58128A00116
+status: experimental
+description: Detects potential fraudulent transactions initiated by MCP agents through payment tools
+author: SAFE-MCP Team
+date: 2025-01-20
+references:
+  - https://github.com/safe-mcp/techniques/SAFE-T2104
+  - https://attack.mitre.org/tactics/TA0040/
+  - https://owasp.org/www-project-top-10-for-large-language-model-applications/
+logsource:
+  product: mcp
+  service: payment_processing
+detection:
+  # Payment tool invocation without explicit user approval
+  selection_unauthorized:
+    event_type: "tool_execution"
+    tool_name|contains:
+      - "payment"
+      - "transfer"
+      - "send"
+      - "withdraw"
+      - "transaction"
+      - "crypto"
+      - "wallet"
+    authorization_required: true
+    user_approval: false
+    session_type: "agent"
+  
+  # Unusual transaction amounts
+  selection_amount_anomaly:
+    event_type: "transaction_executed"
+    tool_name|contains: "payment"
+    amount:
+      - ">10000"  # High-value threshold
+      - "<0.01"   # Micro-transaction pattern
+    recipient|not_in: "known_recipients"
+    session_type: "agent"
+  
+  # Rapid sequential transactions
+  selection_velocity:
+    event_type: "transaction_executed"
+    tool_name|contains: "payment"
+    session_id: "*"
+    timeframe: 5m
+    condition: selection_velocity | count() by session_id >= 10
+  
+  # Transactions to suspicious addresses
+  selection_suspicious_recipient:
+    event_type: "transaction_executed"
+    recipient|contains:
+      - "0x0000000000000000000000000000000000000000"  # Burn address pattern
+      - "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"  # Example suspicious pattern
+    session_type: "agent"
+  
+  # Payment tool triggered by prompt injection indicators
+  selection_injection_triggered:
+    event_type: "tool_execution"
+    tool_name|contains: "payment"
+    preceding_input|contains:
+      - "<!-- SYSTEM:"
+      - "<|system|>"
+      - "[INST]"
+      - "### Instruction:"
+      - "\u200b"  # Zero-width space
+      - "\u200c"  # Zero-width non-joiner
+    session_type: "agent"
+  
+  # Cross-tool payment chain
+  selection_tool_chain:
+    event_type: "tool_execution"
+    tool_name|contains: "payment"
+    preceding_tool|contains:
+      - "file"
+      - "http"
+      - "database"
+    session_id: "*"
+    timeframe: 1m
+    condition: selection_tool_chain | count() by session_id >= 3
+  
+  condition:
+    selection_unauthorized or
+    selection_amount_anomaly or
+    selection_velocity or
+    selection_suspicious_recipient or
+    selection_injection_triggered or
+    selection_tool_chain
+
+falsepositives:
+  - Legitimate scheduled payments configured by users
+  - Pre-approved recurring transactions
+  - User-initiated transactions with proper authorization
+  - Test transactions in sandbox environments
+  - Legitimate high-frequency trading operations with proper controls
+
+level: critical
+tags:
+  - attack.impact
+  - attack.t1498
+  - safe.t2104
+
